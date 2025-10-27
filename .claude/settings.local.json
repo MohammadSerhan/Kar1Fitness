@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter --version:*)",
+      "Bash(mkdir:*)",
+      "Bash(copy:*)",
+      "Bash(cp:*)",
+      "Bash(xcopy:*)",
+      "Bash(dir:*)",
+      "Bash(flutter pub:*)",
+      "Bash(flutter analyze:*)",
+      "Bash(flutter clean:*)",
+      "Bash(powershell -Command \"Remove-Item -Path ''C:\\Users\\MohammadSerhan\\.gradle\\caches\\8.0'' -Recurse -Force\")",
+      "Bash(gradlew --stop:*)",
+      "Bash(.gradlew.bat --stop)",
+      "Bash(powershell -Command:*)",
+      "Bash(flutter run)",
+      "Bash(flutter create:*)",
+      "Bash(flutter devices:*)",
+      "Bash(flutter run:*)",
+      "Bash(timeout:*)",
+      "Bash(adb.exe -s emulator-5554 logcat:*)",
+      "Bash(findstr:*)",
+      "Bash(git config:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
