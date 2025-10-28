@@ -10,6 +10,7 @@ import '../../services/workout_recommendation_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/exercise_card.dart';
 import '../../widgets/date_timeline_selector.dart';
+import '../../widgets/health_data_card.dart';
 import '../exercise/exercise_detail_screen.dart';
 import '../workout/workout_recording_screen.dart';
 
@@ -76,7 +77,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 24),
 
                     // Health Data Card
-                    _buildHealthDataCard(user),
+                    const HealthDataCard(),
                     const SizedBox(height: 24),
 
                     // Next Exercise Plan
@@ -104,71 +105,6 @@ class _HomeScreenState extends State<HomeScreen> {
           style: Theme.of(context).textTheme.displayMedium?.copyWith(
                 color: AppTheme.primaryYellow,
               ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildHealthDataCard(UserModel user) {
-    final healthData = user.healthData;
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.favorite, color: AppTheme.primaryYellow),
-                const SizedBox(width: 8),
-                Text(
-                  'Health Stats',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildHealthStat(
-                  'Steps',
-                  healthData?['steps']?.toString() ?? '0',
-                  Icons.directions_walk,
-                ),
-                _buildHealthStat(
-                  'Calories',
-                  healthData?['calories']?.toString() ?? '0',
-                  Icons.local_fire_department,
-                ),
-                _buildHealthStat(
-                  'Active Min',
-                  healthData?['active_minutes']?.toString() ?? '0',
-                  Icons.timer,
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHealthStat(String label, String value, IconData icon) {
-    return Column(
-      children: [
-        Icon(icon, color: AppTheme.primaryYellow, size: 32),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-        ),
-        Text(
-          label,
-          style: Theme.of(context).textTheme.bodySmall,
         ),
       ],
     );
