@@ -101,9 +101,9 @@ class HealthService {
   ) async {
     try {
       final healthData = await _health.getHealthDataFromTypes(
-        startDate,
-        endDate,
-        types,
+        startTime: startDate,
+        endTime: endDate,
+        types: types,
       );
 
       return healthData;
@@ -148,9 +148,9 @@ class HealthService {
       final yesterday = now.subtract(const Duration(days: 1));
 
       final healthData = await _health.getHealthDataFromTypes(
-        yesterday,
-        now,
-        [HealthDataType.HEART_RATE],
+        startTime: yesterday,
+        endTime: now,
+        types: [HealthDataType.HEART_RATE],
       );
 
       if (healthData.isNotEmpty) {
@@ -172,9 +172,9 @@ class HealthService {
       final lastMonth = now.subtract(const Duration(days: 30));
 
       final healthData = await _health.getHealthDataFromTypes(
-        lastMonth,
-        now,
-        [HealthDataType.WEIGHT],
+        startTime: lastMonth,
+        endTime: now,
+        types: [HealthDataType.WEIGHT],
       );
 
       if (healthData.isNotEmpty) {
@@ -198,10 +198,10 @@ class HealthService {
   }) async {
     try {
       final success = await _health.writeHealthData(
-        calories.toDouble(),
-        HealthDataType.ACTIVE_ENERGY_BURNED,
-        startTime,
-        endTime,
+        value: calories.toDouble(),
+        type: HealthDataType.ACTIVE_ENERGY_BURNED,
+        startTime: startTime,
+        endTime: endTime,
       );
 
       if (success) {
@@ -257,9 +257,9 @@ class HealthService {
   ) async {
     try {
       final healthData = await _health.getHealthDataFromTypes(
-        startDate,
-        endDate,
-        [type],
+        startTime: startDate,
+        endTime: endDate,
+        types: [type],
       );
 
       if (healthData.isEmpty) {
