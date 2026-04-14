@@ -8,10 +8,10 @@ class ExerciseCard extends StatelessWidget {
   final VoidCallback onTap;
 
   const ExerciseCard({
-    Key? key,
+    super.key,
     required this.exercise,
     required this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -46,7 +46,7 @@ class ExerciseCard extends StatelessWidget {
                           width: 80,
                           height: 80,
                           color: AppTheme.darkGrey,
-                          child: Icon(
+                          child: const Icon(
                             Icons.fitness_center,
                             color: AppTheme.mediumGrey,
                           ),
@@ -56,7 +56,7 @@ class ExerciseCard extends StatelessWidget {
                         width: 80,
                         height: 80,
                         color: AppTheme.darkGrey,
-                        child: Icon(
+                        child: const Icon(
                           Icons.fitness_center,
                           color: AppTheme.primaryYellow,
                           size: 32,
@@ -88,7 +88,7 @@ class ExerciseCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.build,
                           size: 14,
                           color: AppTheme.mediumGrey,
@@ -109,7 +109,7 @@ class ExerciseCard extends StatelessWidget {
               ),
 
               // Arrow Icon
-              Icon(
+              const Icon(
                 Icons.arrow_forward_ios,
                 color: AppTheme.mediumGrey,
                 size: 16,

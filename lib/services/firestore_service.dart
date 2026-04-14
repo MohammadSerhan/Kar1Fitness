@@ -73,7 +73,7 @@ class FirestoreService {
       QuerySnapshot querySnapshot = await _firestore
           .collection('exercises')
           .where('name', isGreaterThanOrEqualTo: query)
-          .where('name', isLessThanOrEqualTo: query + '\uf8ff')
+          .where('name', isLessThanOrEqualTo: '$query\uf8ff')
           .get();
       return querySnapshot.docs
           .map((doc) => ExerciseModel.fromFirestore(doc))

@@ -15,7 +15,7 @@ class AppTheme {
     brightness: Brightness.dark,
     primaryColor: primaryYellow,
     scaffoldBackgroundColor: darkBackground,
-    colorScheme: ColorScheme.dark(
+    colorScheme: const ColorScheme.dark(
       primary: primaryYellow,
       secondary: primaryYellow,
       surface: cardBackground,
@@ -24,7 +24,7 @@ class AppTheme {
       onSurface: white,
     ),
 
-    appBarTheme: AppBarTheme(
+    appBarTheme: const AppBarTheme(
       backgroundColor: darkBackground,
       elevation: 0,
       centerTitle: true,
@@ -48,11 +48,11 @@ class AppTheme {
       style: ElevatedButton.styleFrom(
         backgroundColor: primaryYellow,
         foregroundColor: darkBackground,
-        padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
-        textStyle: TextStyle(
+        textStyle: const TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.bold,
         ),
@@ -62,8 +62,8 @@ class AppTheme {
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         foregroundColor: primaryYellow,
-        side: BorderSide(color: primaryYellow, width: 2),
-        padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+        side: const BorderSide(color: primaryYellow, width: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
@@ -79,21 +79,21 @@ class AppTheme {
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: darkGrey),
+        borderSide: const BorderSide(color: darkGrey),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: primaryYellow, width: 2),
+        borderSide: const BorderSide(color: primaryYellow, width: 2),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.red),
+        borderSide: const BorderSide(color: Colors.red),
       ),
-      labelStyle: TextStyle(color: mediumGrey),
-      hintStyle: TextStyle(color: mediumGrey),
+      labelStyle: const TextStyle(color: mediumGrey),
+      hintStyle: const TextStyle(color: mediumGrey),
     ),
 
-    textTheme: TextTheme(
+    textTheme: const TextTheme(
       displayLarge: TextStyle(
         fontSize: 32,
         fontWeight: FontWeight.bold,
@@ -139,7 +139,7 @@ class AppTheme {
       ),
     ),
 
-    bottomNavigationBarTheme: BottomNavigationBarThemeData(
+    bottomNavigationBarTheme: const BottomNavigationBarThemeData(
       backgroundColor: cardBackground,
       selectedItemColor: primaryYellow,
       unselectedItemColor: mediumGrey,

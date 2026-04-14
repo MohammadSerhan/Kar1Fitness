@@ -6,11 +6,10 @@ import '../../models/workout_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/app_theme.dart';
-import '../auth/login_screen.dart';
 import '../debug/firebase_test_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({Key? key}) : super(key: key);
+  const ProfileScreen({super.key});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -96,7 +95,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: user.profilePictureUrl == null
                   ? Text(
                       user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U',
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 32,
                         color: AppTheme.darkBackground,
                         fontWeight: FontWeight.bold,
@@ -229,7 +228,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.show_chart,
                     size: 48,
                     color: AppTheme.mediumGrey,
@@ -291,13 +290,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             },
                           ),
                         ),
-                        leftTitles: AxisTitles(
+                        leftTitles: const AxisTitles(
                           sideTitles: SideTitles(showTitles: false),
                         ),
-                        topTitles: AxisTitles(
+                        topTitles: const AxisTitles(
                           sideTitles: SideTitles(showTitles: false),
                         ),
-                        rightTitles: AxisTitles(
+                        rightTitles: const AxisTitles(
                           sideTitles: SideTitles(showTitles: false),
                         ),
                       ),

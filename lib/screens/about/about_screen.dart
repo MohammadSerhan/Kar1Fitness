@@ -6,7 +6,7 @@ import '../../widgets/exercise_card.dart';
 import '../exercise/exercise_detail_screen.dart';
 
 class AboutScreen extends StatefulWidget {
-  const AboutScreen({Key? key}) : super(key: key);
+  const AboutScreen({super.key});
 
   @override
   State<AboutScreen> createState() => _AboutScreenState();

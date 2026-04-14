@@ -8,11 +8,11 @@ class DateTimelineSelector extends StatefulWidget {
   final int daysToShow;
 
   const DateTimelineSelector({
-    Key? key,
+    super.key,
     this.initialDate,
     required this.onDateSelected,
     this.daysToShow = 7,
-  }) : super(key: key);
+  });
 
   @override
   State<DateTimelineSelector> createState() => _DateTimelineSelectorState();

@@ -34,7 +34,11 @@
       "Bash(./ffmpeg.exe -i \"/e/C9671.MP4\")",
       "Bash(rm -rf thumbnails)",
       "Bash(mkdir thumbnails:*)",
-      "Bash(./ffmpeg.exe -y -i \"/e/C9671.MP4\" -vf \"select='not\\(mod\\(n,15\\)\\)',scale=320:-1,tile=3x2\" -frames:v 1 -q:v 3 \"thumbnails/C9671.jpg\")"
+      "Bash(./ffmpeg.exe -y -i \"/e/C9671.MP4\" -vf \"select='not\\(mod\\(n,15\\)\\)',scale=320:-1,tile=3x2\" -frames:v 1 -q:v 3 \"thumbnails/C9671.jpg\")",
+      "Bash(flutter build:*)",
+      "WebFetch(domain:pub.dev)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []
