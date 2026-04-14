@@ -44,12 +44,14 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
       await _cachedPlayer!.initialize();
 
       final controller = _cachedPlayer!.controller;
+      await controller.setVolume(0);
 
       _chewieController = ChewieController(
         videoPlayerController: controller,
         aspectRatio: controller.value.aspectRatio,
         autoPlay: false,
         looping: true,
+        allowMuting: false,
         placeholder: _buildThumbnailPlaceholder(),
         materialProgressColors: ChewieProgressColors(
           playedColor: AppTheme.primaryYellow,
