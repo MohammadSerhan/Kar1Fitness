@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:health/health.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -18,23 +19,26 @@ class HealthService {
   // Request authorization to access health data.
   // On Android this opens Health Connect — the actual permission result is
   // detected later via hasPermissions() when the app resumes.
-  Future<void> requestAuthorization() async {
+  Future<bool> requestAuthorization() async {
     try {
       await _health.configure();
 
-      // Request activity recognition permission first (Android)
-      final activityStatus = await Permission.activityRecognition.request();
-
-      if (!activityStatus.isGranted) {
-        print('Activity recognition permission denied');
-        return;
+      // Request activity recognition permission first (Android only)
+      if (Platform.isAndroid) {
+        final activityStatus = await Permission.activityRecognition.request();
+        if (!activityStatus.isGranted) {
+          print('Activity recognition permission denied');
+          return false;
+        }
       }
 
-      // Opens Health Connect permission UI on Android
       final permissions = types.map((type) => HealthDataAccess.READ_WRITE).toList();
-      await _health.requestAuthorization(types, permissions: permissions);
+      final authorized = await _health.requestAuthorization(types, permissions: permissions);
+      print('Health authorization result: $authorized');
+      return authorized;
     } catch (e) {
       print('Error requesting health authorization: $e');
+      return false;
     }
   }
 

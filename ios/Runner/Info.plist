@@ -47,5 +47,9 @@
 	<string>This app needs to update health data to record your workouts.</string>
 	<key>NSMotionUsageDescription</key>
 	<string>This app uses motion data to track your activity.</string>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
 </dict>
 </plist>

@@ -81,8 +81,13 @@ class _HealthDataCardState extends State<HealthDataCard>
     // Mark that we're waiting so didChangeAppLifecycleState re-checks on resume
     _waitingForPermission = true;
 
-    // This opens Health Connect — don't rely on its return value
-    await _healthService.requestAuthorization();
+    final authorized = await _healthService.requestAuthorization();
+
+    // On iOS, requestAuthorization returns immediately after the user responds
+    // to the HealthKit permission dialog, so we can reload right away.
+    if (authorized && mounted) {
+      _loadHealthData();
+    }
   }
 
   @override
