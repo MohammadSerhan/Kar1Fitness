@@ -9,11 +9,13 @@ import '../../theme/app_theme.dart';
 
 class WorkoutRecordingScreen extends StatefulWidget {
   final DateTime selectedDate;
+  final List<ExerciseModel>? preloadedExercises;
 
   const WorkoutRecordingScreen({
-    Key? key,
+    super.key,
     required this.selectedDate,
-  }) : super(key: key);
+    this.preloadedExercises,
+  });
 
   @override
   State<WorkoutRecordingScreen> createState() => _WorkoutRecordingScreenState();
@@ -29,6 +31,12 @@ class _WorkoutRecordingScreenState extends State<WorkoutRecordingScreen> {
   @override
   void initState() {
     super.initState();
+    // Pre-populate with recommended exercises if provided
+    if (widget.preloadedExercises != null) {
+      for (final exercise in widget.preloadedExercises!) {
+        _exerciseEntries.add(ExerciseEntry(exercise: exercise));
+      }
+    }
     _startWorkout();
   }
 
@@ -153,7 +161,7 @@ class _WorkoutRecordingScreenState extends State<WorkoutRecordingScreen> {
               child: Center(
                 child: Text(
                   _getWorkoutDuration(),
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: AppTheme.primaryYellow,
                     fontWeight: FontWeight.bold,
                   ),
@@ -176,7 +184,7 @@ class _WorkoutRecordingScreenState extends State<WorkoutRecordingScreen> {
                       children: [
                         Row(
                           children: [
-                            Icon(Icons.fitness_center,
+                            const Icon(Icons.fitness_center,
                                 color: AppTheme.primaryYellow),
                             const SizedBox(width: 8),
                             Text(
@@ -202,7 +210,7 @@ class _WorkoutRecordingScreenState extends State<WorkoutRecordingScreen> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(
+                              const Icon(
                                 Icons.add_circle_outline,
                                 size: 64,
                                 color: AppTheme.mediumGrey,
@@ -487,7 +495,7 @@ class _ExerciseSelectionDialogState extends State<_ExerciseSelectionDialog> {
                           title: Text(exercise.name),
                           subtitle: Text(
                             exercise.muscleGroups.join(', '),
-                            style: TextStyle(color: AppTheme.lightGrey),
+                            style: const TextStyle(color: AppTheme.lightGrey),
                           ),
                           onTap: () {
                             Navigator.of(context).pop(exercise);

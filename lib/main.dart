@@ -5,7 +5,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import 'services/auth_service.dart';
-import 'models/user_model.dart';
 import 'theme/app_theme.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/main_screen.dart';
@@ -26,7 +25,7 @@ void main() async {
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -47,7 +46,7 @@ class MyApp extends StatelessWidget {
 }
 
 class AuthWrapper extends StatefulWidget {
-  const AuthWrapper({Key? key}) : super(key: key);
+  const AuthWrapper({super.key});
 
   @override
   State<AuthWrapper> createState() => _AuthWrapperState();

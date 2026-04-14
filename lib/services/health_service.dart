@@ -15,32 +15,26 @@ class HealthService {
     HealthDataType.WORKOUT,
   ];
 
-  // Request authorization to access health data
-  Future<bool> requestAuthorization() async {
+  // Request authorization to access health data.
+  // On Android this opens Health Connect — the actual permission result is
+  // detected later via hasPermissions() when the app resumes.
+  Future<void> requestAuthorization() async {
     try {
+      await _health.configure();
+
       // Request activity recognition permission first (Android)
       final activityStatus = await Permission.activityRecognition.request();
 
       if (!activityStatus.isGranted) {
         print('Activity recognition permission denied');
-        return false;
+        return;
       }
 
-      // Request health data permissions
+      // Opens Health Connect permission UI on Android
       final permissions = types.map((type) => HealthDataAccess.READ_WRITE).toList();
-
-      final authorized = await _health.requestAuthorization(types, permissions: permissions);
-
-      if (authorized) {
-        print('Health authorization granted');
-      } else {
-        print('Health authorization denied');
-      }
-
-      return authorized;
+      await _health.requestAuthorization(types, permissions: permissions);
     } catch (e) {
       print('Error requesting health authorization: $e');
-      return false;
     }
   }
 
@@ -90,6 +84,51 @@ class HealthService {
         'distance_km': '0.00',
         'active_minutes': 0,
         'date': DateTime.now().toIso8601String(),
+      };
+    }
+  }
+
+  // Get health data for a specific date range (used for past dates)
+  Future<Map<String, dynamic>> getHealthDataForDate(
+    DateTime startOfDay,
+    DateTime endOfDay,
+  ) async {
+    try {
+      await _health.configure();
+
+      final steps = await _getHealthDataSum(
+        HealthDataType.STEPS,
+        startOfDay,
+        endOfDay,
+      );
+
+      final calories = await _getHealthDataSum(
+        HealthDataType.ACTIVE_ENERGY_BURNED,
+        startOfDay,
+        endOfDay,
+      );
+
+      final distanceMeters = await _getHealthDataSum(
+        HealthDataType.DISTANCE_DELTA,
+        startOfDay,
+        endOfDay,
+      );
+
+      final activeMinutes = steps > 0 ? (steps / 100).round() : 0;
+
+      return {
+        'steps': steps.round(),
+        'calories': calories.round(),
+        'distance_km': (distanceMeters / 1000).toStringAsFixed(2),
+        'active_minutes': activeMinutes,
+      };
+    } catch (e) {
+      print('Error getting health data for date: $e');
+      return {
+        'steps': 0,
+        'calories': 0,
+        'distance_km': '0.00',
+        'active_minutes': 0,
       };
     }
   }
@@ -155,7 +194,7 @@ class HealthService {
 
       if (healthData.isNotEmpty) {
         final latestHR = healthData.last;
-        return (latestHR.value as num).round();
+        return (latestHR.value as NumericHealthValue).numericValue.round();
       }
 
       return null;
@@ -179,7 +218,7 @@ class HealthService {
 
       if (healthData.isNotEmpty) {
         final latestWeight = healthData.last;
-        return (latestWeight.value as num).toDouble();
+        return (latestWeight.value as NumericHealthValue).numericValue.toDouble();
       }
 
       return null;
@@ -217,13 +256,25 @@ class HealthService {
     }
   }
 
-  // Check if health data is available on this device
+  // Check if health data is available by attempting to read steps.
+  // hasPermissions() is unreliable on Android Health Connect (returns false
+  // even when permissions are granted), so we verify by reading real data.
   Future<bool> isHealthDataAvailable() async {
     try {
-      final available = await _health.hasPermissions(types);
-      return available ?? false;
+      await _health.configure();
+      final now = DateTime.now();
+      final start = DateTime(now.year, now.month, now.day);
+      final data = await _health.getHealthDataFromTypes(
+        startTime: start,
+        endTime: now,
+        types: [HealthDataType.STEPS],
+      );
+      // If the call succeeds without throwing, we have permission.
+      // An empty list just means no steps recorded yet, not a permission issue.
+      print('Health permission verified (steps data points: ${data.length})');
+      return true;
     } catch (e) {
-      print('Error checking health data availability: $e');
+      print('Health data not available: $e');
       return false;
     }
   }
@@ -233,17 +284,13 @@ class HealthService {
     final isAvailable = await isHealthDataAvailable();
 
     if (!isAvailable) {
-      // Request authorization if not available
-      final authorized = await requestAuthorization();
-      if (!authorized) {
-        return {
-          'steps': 0,
-          'calories': 0,
-          'distance_km': '0.00',
-          'active_minutes': 0,
-          'date': DateTime.now().toIso8601String(),
-        };
-      }
+      return {
+        'steps': 0,
+        'calories': 0,
+        'distance_km': '0.00',
+        'active_minutes': 0,
+        'date': DateTime.now().toIso8601String(),
+      };
     }
 
     return await getTodayHealthData();
@@ -268,8 +315,8 @@ class HealthService {
 
       double sum = 0.0;
       for (var data in healthData) {
-        if (data.value is num) {
-          sum += (data.value as num).toDouble();
+        if (data.value is NumericHealthValue) {
+          sum += (data.value as NumericHealthValue).numericValue.toDouble();
         }
       }
 

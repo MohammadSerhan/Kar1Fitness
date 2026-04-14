@@ -36,17 +36,19 @@ class AuthService {
         password: password,
       );
 
-      // Create user document in Firestore
+      // Create user document in Firestore.
+      // If this fails, AuthWrapper._ensureUserDocument will retry on login.
       if (userCredential.user != null) {
-        await _createUserDocument(userCredential.user!, name);
+        try {
+          await _createUserDocument(userCredential.user!, name);
+        } catch (e) {
+          print('Warning: Firestore doc creation failed, AuthWrapper will retry: $e');
+        }
       }
 
       return userCredential;
     } on FirebaseAuthException catch (e) {
       throw _handleAuthException(e);
-    } catch (e) {
-      print('Error during signup: $e');
-      throw 'Failed to create user account: $e';
     }
   }
 

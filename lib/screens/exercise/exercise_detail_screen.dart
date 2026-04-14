@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:video_player/video_player.dart';
+import 'package:cached_video_player_plus/cached_video_player_plus.dart';
 import 'package:chewie/chewie.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../models/exercise_model.dart';
 import '../../theme/app_theme.dart';
 
 class ExerciseDetailScreen extends StatefulWidget {
   final ExerciseModel exercise;
 
-  const ExerciseDetailScreen({Key? key, required this.exercise})
-      : super(key: key);
+  const ExerciseDetailScreen({super.key, required this.exercise});
 
   @override
   State<ExerciseDetailScreen> createState() => _ExerciseDetailScreenState();
 }
 
 class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
-  VideoPlayerController? _videoPlayerController;
+  CachedVideoPlayerPlus? _cachedPlayer;
   ChewieController? _chewieController;
   bool _isVideoInitialized = false;
   String? _videoError;
@@ -31,23 +31,26 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
   @override
   void dispose() {
     _chewieController?.dispose();
-    _videoPlayerController?.dispose();
+    _cachedPlayer?.dispose();
     super.dispose();
   }
 
   Future<void> _initializeVideoPlayer() async {
     try {
-      _videoPlayerController = VideoPlayerController.networkUrl(
+      _cachedPlayer = CachedVideoPlayerPlus.networkUrl(
         Uri.parse(widget.exercise.videoUrl),
       );
 
-      await _videoPlayerController!.initialize();
+      await _cachedPlayer!.initialize();
+
+      final controller = _cachedPlayer!.controller;
 
       _chewieController = ChewieController(
-        videoPlayerController: _videoPlayerController!,
-        aspectRatio: 16 / 9,
+        videoPlayerController: controller,
+        aspectRatio: controller.value.aspectRatio,
         autoPlay: false,
         looping: true,
+        placeholder: _buildThumbnailPlaceholder(),
         materialProgressColors: ChewieProgressColors(
           playedColor: AppTheme.primaryYellow,
           handleColor: AppTheme.primaryYellow,
@@ -64,6 +67,34 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
         _videoError = 'Unable to load video';
       });
     }
+  }
+
+  Widget _buildThumbnailPlaceholder() {
+    final thumbnailUrl = widget.exercise.thumbnailUrl;
+    if (thumbnailUrl != null && thumbnailUrl.isNotEmpty) {
+      return CachedNetworkImage(
+        imageUrl: thumbnailUrl,
+        fit: BoxFit.cover,
+        placeholder: (context, url) => Container(
+          color: AppTheme.cardBackground,
+          child: const Center(child: CircularProgressIndicator()),
+        ),
+        errorWidget: (context, url, error) => Container(
+          color: AppTheme.cardBackground,
+          child: const Center(
+            child: Icon(Icons.play_circle_outline,
+                size: 64, color: AppTheme.mediumGrey),
+          ),
+        ),
+      );
+    }
+    return Container(
+      color: AppTheme.cardBackground,
+      child: const Center(
+        child:
+            Icon(Icons.play_circle_outline, size: 64, color: AppTheme.mediumGrey),
+      ),
+    );
   }
 
   @override
@@ -128,7 +159,7 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
+              const Icon(
                 Icons.error_outline,
                 size: 64,
                 color: AppTheme.mediumGrey,
@@ -155,7 +186,7 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
     }
 
     return AspectRatio(
-      aspectRatio: 16 / 9,
+      aspectRatio: _cachedPlayer!.controller.value.aspectRatio,
       child: Chewie(controller: _chewieController!),
     );
   }
@@ -216,7 +247,7 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
           children: [
             Row(
               children: [
-                Icon(Icons.info_outline, color: AppTheme.primaryYellow),
+                const Icon(Icons.info_outline, color: AppTheme.primaryYellow),
                 const SizedBox(width: 8),
                 Text(
                   'Description',

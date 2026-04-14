@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
-import '../main_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
-  const SignUpScreen({Key? key}) : super(key: key);
+  const SignUpScreen({super.key});
 
   @override
   State<SignUpScreen> createState() => _SignUpScreenState();
@@ -43,8 +42,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
         _nameController.text.trim(),
       );
 
-      // Navigation is handled by AuthWrapper in main.dart
-      // No need to manually navigate
+      // Pop back so AuthWrapper can navigate to MainScreen
+      if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -126,7 +125,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       if (value == null || value.isEmpty) {
                         return 'Please enter your email';
                       }
-                      if (!value.contains('@')) {
+                      final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+                      if (!emailRegex.hasMatch(value.trim())) {
                         return 'Please enter a valid email';
                       }
                       return null;
@@ -224,7 +224,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         onPressed: () {
                           Navigator.of(context).pop();
                         },
-                        child: Text(
+                        child: const Text(
                           'Login',
                           style: TextStyle(
                             color: AppTheme.primaryYellow,

@@ -4,7 +4,7 @@ import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
-  const ForgotPasswordScreen({Key? key}) : super(key: key);
+  const ForgotPasswordScreen({super.key});
 
   @override
   State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
@@ -71,7 +71,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.lock_reset,
                     size: 80,
                     color: AppTheme.primaryYellow,
@@ -103,7 +103,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       if (value == null || value.isEmpty) {
                         return 'Please enter your email';
                       }
-                      if (!value.contains('@')) {
+                      final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+                      if (!emailRegex.hasMatch(value.trim())) {
                         return 'Please enter a valid email';
                       }
                       return null;

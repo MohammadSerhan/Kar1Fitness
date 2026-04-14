@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
-import '../main_screen.dart';
 import 'signup_screen.dart';
 import 'forgot_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
+  const LoginScreen({super.key});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -104,7 +103,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       if (value == null || value.isEmpty) {
                         return 'Please enter your email';
                       }
-                      if (!value.contains('@')) {
+                      final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+                      if (!emailRegex.hasMatch(value.trim())) {
                         return 'Please enter a valid email';
                       }
                       return null;
@@ -153,7 +153,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         );
                       },
-                      child: Text(
+                      child: const Text(
                         'Forgot Password?',
                         style: TextStyle(color: AppTheme.primaryYellow),
                       ),
@@ -194,7 +194,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           );
                         },
-                        child: Text(
+                        child: const Text(
                           'Sign Up',
                           style: TextStyle(
                             color: AppTheme.primaryYellow,

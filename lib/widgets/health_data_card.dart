@@ -1,24 +1,44 @@
 import 'package:flutter/material.dart';
+import 'package:health/health.dart';
 import '../services/health_service.dart';
 import '../theme/app_theme.dart';
 
 class HealthDataCard extends StatefulWidget {
-  const HealthDataCard({Key? key}) : super(key: key);
+  const HealthDataCard({super.key});
 
   @override
   State<HealthDataCard> createState() => _HealthDataCardState();
 }
 
-class _HealthDataCardState extends State<HealthDataCard> {
+class _HealthDataCardState extends State<HealthDataCard>
+    with WidgetsBindingObserver {
   final HealthService _healthService = HealthService();
   bool _isLoading = true;
   bool _hasPermission = false;
+  bool _waitingForPermission = false;
   Map<String, dynamic> _healthData = {};
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadHealthData();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    print('App lifecycle state: $state, waitingForPermission: $_waitingForPermission');
+    // When the app resumes after Health Connect closes, re-check permissions
+    if (state == AppLifecycleState.resumed && _waitingForPermission) {
+      _waitingForPermission = false;
+      _loadHealthData();
+    }
   }
 
   Future<void> _loadHealthData() async {
@@ -28,52 +48,51 @@ class _HealthDataCardState extends State<HealthDataCard> {
       final hasPermission = await _healthService.isHealthDataAvailable();
 
       if (!hasPermission) {
-        setState(() {
-          _hasPermission = false;
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _hasPermission = false;
+            _isLoading = false;
+          });
+        }
         return;
       }
 
       final data = await _healthService.getTodayHealthData();
 
-      setState(() {
-        _healthData = data;
-        _hasPermission = true;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _healthData = data;
+          _hasPermission = true;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
       print('Error loading health data: $e');
-      setState(() {
-        _hasPermission = false;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _hasPermission = false;
+          _isLoading = false;
+        });
+      }
     }
   }
 
   Future<void> _requestPermission() async {
-    final granted = await _healthService.requestAuthorization();
+    // Mark that we're waiting so didChangeAppLifecycleState re-checks on resume
+    _waitingForPermission = true;
 
-    if (granted) {
-      _loadHealthData();
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Health permissions are required to track your activity'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
+    // This opens Health Connect — don't rely on its return value
+    await _healthService.requestAuthorization();
   }
 
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return Card(
+      return const Card(
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: EdgeInsets.all(16.0),
           child: Column(
-            children: const [
+            children: [
               CircularProgressIndicator(),
               SizedBox(height: 8),
               Text('Loading health data...'),
@@ -89,7 +108,7 @@ class _HealthDataCardState extends State<HealthDataCard> {
           padding: const EdgeInsets.all(16.0),
           child: Column(
             children: [
-              Icon(
+              const Icon(
                 Icons.favorite_border,
                 size: 48,
                 color: AppTheme.primaryYellow,
