@@ -6,6 +6,8 @@ import '../../models/workout_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/app_theme.dart';
+import '../../l10n/app_localizations.dart';
+import '../../providers/locale_provider.dart';
 import '../debug/firebase_test_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -23,10 +25,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final authService = Provider.of<AuthService>(context);
     final userId = authService.currentUser?.uid ?? '';
 
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Profile'),
+        title: Text(l10n.profile),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.language),
+            onPressed: () => _showLanguageDialog(context),
+            tooltip: l10n.language,
+          ),
           IconButton(
             icon: const Icon(Icons.bug_report),
             onPressed: () {
@@ -53,7 +61,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
           final user = userSnapshot.data;
           if (user == null) {
-            return const Center(child: Text('User not found'));
+            return Center(child: Text(l10n.userNotFound));
           }
 
           return SingleChildScrollView(
@@ -149,7 +157,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Statistics',
+                  AppLocalizations.of(context).statistics,
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 16),
@@ -157,7 +165,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     Expanded(
                       child: _buildStatCard(
-                        'Total Workouts',
+                        AppLocalizations.of(context).totalWorkouts,
                         stats['totalWorkouts'].toString(),
                         Icons.fitness_center,
                       ),
@@ -165,7 +173,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(width: 16),
                     Expanded(
                       child: _buildStatCard(
-                        'Total Exercises',
+                        AppLocalizations.of(context).totalExercises,
                         stats['totalExercises'].toString(),
                         Icons.assignment,
                       ),
@@ -235,7 +243,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'No workout data yet',
+                    AppLocalizations.of(context).noWorkoutData,
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ],
@@ -258,7 +266,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Workout Frequency (Last 30 Days)',
+                  AppLocalizations.of(context).workoutFrequency,
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 16),
@@ -330,23 +338,61 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showLogoutDialog(BuildContext context, AuthService authService) {
+    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Logout'),
-        content: const Text('Are you sure you want to logout?'),
+        title: Text(l10n.logoutConfirmTitle),
+        content: Text(l10n.logoutConfirmMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+            child: Text(l10n.cancel),
           ),
           ElevatedButton(
             onPressed: () async {
-              Navigator.of(context).pop(); // Close dialog first
+              Navigator.of(context).pop();
               await authService.signOut();
-              // AuthWrapper will handle navigation automatically
             },
-            child: const Text('Logout'),
+            child: Text(l10n.logout),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showLanguageDialog(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final localeProvider =
+        Provider.of<LocaleProvider>(context, listen: false);
+    final currentCode = localeProvider.locale.languageCode;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.language),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: AppLocalizations.supportedLocales.map((locale) {
+            final code = locale.languageCode;
+            return RadioListTile<String>(
+              title: Text(AppLocalizations.displayName(code)),
+              value: code,
+              groupValue: currentCode,
+              activeColor: AppTheme.primaryYellow,
+              onChanged: (value) async {
+                if (value != null) {
+                  await localeProvider.setLocale(Locale(value));
+                  if (context.mounted) Navigator.of(context).pop();
+                }
+              },
+            );
+          }).toList(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(l10n.cancel),
           ),
         ],
       ),

@@ -8,6 +8,8 @@ import 'services/auth_service.dart';
 import 'theme/app_theme.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/main_screen.dart';
+import 'providers/locale_provider.dart';
+import 'l10n/app_localizations.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,11 +23,16 @@ void main() async {
     print('✗ Firebase initialization error: $e');
   }
 
-  runApp(const MyApp());
+  // Load the user's saved language before first render so we don't flash English
+  final localeProvider = LocaleProvider();
+  await localeProvider.loadSavedLocale();
+
+  runApp(MyApp(localeProvider: localeProvider));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final LocaleProvider localeProvider;
+  const MyApp({super.key, required this.localeProvider});
 
   @override
   Widget build(BuildContext context) {
@@ -34,12 +41,20 @@ class MyApp extends StatelessWidget {
         Provider<AuthService>(
           create: (_) => AuthService(),
         ),
+        ChangeNotifierProvider<LocaleProvider>.value(value: localeProvider),
       ],
-      child: MaterialApp(
-        title: 'KAR1 Fitness',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.darkTheme,
-        home: const AuthWrapper(),
+      child: Consumer<LocaleProvider>(
+        builder: (context, localeProv, _) {
+          return MaterialApp(
+            title: 'KAR1 Fitness',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.darkTheme,
+            locale: localeProv.locale,
+            supportedLocales: AppLocalizations.supportedLocales,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            home: const AuthWrapper(),
+          );
+        },
       ),
     );
   }

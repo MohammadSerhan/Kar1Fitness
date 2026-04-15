@@ -9,6 +9,7 @@ import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../services/health_service.dart';
 import '../../services/workout_recommendation_service.dart';
+import '../../l10n/app_localizations.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/exercise_card.dart';
 import '../../widgets/date_timeline_selector.dart';
@@ -73,7 +74,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
             final user = userSnapshot.data;
             if (user == null) {
-              return const Center(child: Text('User not found'));
+              return Center(
+                  child: Text(AppLocalizations.of(context).userNotFound));
             }
 
             // Pre-cache today's recommended exercise videos in the background
@@ -123,7 +125,7 @@ class _HomeScreenState extends State<HomeScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Welcome back,',
+          AppLocalizations.of(context).welcomeBackComma,
           style: Theme.of(context).textTheme.bodyLarge,
         ),
         Text(
@@ -216,7 +218,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'No workout on this day',
+                  AppLocalizations.of(context).noWorkoutOnThisDay,
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 4),
@@ -264,7 +266,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'No health data available',
+                    AppLocalizations.of(context).noHealthData,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 4),
@@ -285,7 +287,7 @@ class _HomeScreenState extends State<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Activity',
+                  AppLocalizations.of(context).activity,
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 16),
@@ -294,7 +296,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Expanded(
                       child: _buildHealthMetric(
                         icon: Icons.directions_walk,
-                        label: 'Steps',
+                        label: AppLocalizations.of(context).steps,
                         value: data!['steps']?.toString() ?? '0',
                         color: Colors.blue,
                       ),
@@ -303,7 +305,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Expanded(
                       child: _buildHealthMetric(
                         icon: Icons.local_fire_department,
-                        label: 'Calories',
+                        label: AppLocalizations.of(context).calories,
                         value: data['calories']?.toString() ?? '0',
                         color: Colors.orange,
                       ),
@@ -316,7 +318,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Expanded(
                       child: _buildHealthMetric(
                         icon: Icons.route,
-                        label: 'Distance (km)',
+                        label: AppLocalizations.of(context).distanceKm,
                         value: data['distance_km']?.toString() ?? '0.0',
                         color: Colors.green,
                       ),
@@ -325,7 +327,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Expanded(
                       child: _buildHealthMetric(
                         icon: Icons.timer,
-                        label: 'Active Min',
+                        label: AppLocalizations.of(context).activeMin,
                         value: data['active_minutes']?.toString() ?? '0',
                         color: Colors.purple,
                       ),
@@ -424,7 +426,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         color: AppTheme.primaryYellow),
                     const SizedBox(width: 8),
                     Text(
-                      'Recommended Focus',
+                      AppLocalizations.of(context).recommendedFocus,
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                   ],
@@ -447,7 +449,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              targetMuscleGroup,
+                              AppLocalizations.of(context)
+                                  .translateMuscleGroup(targetMuscleGroup),
                               style: Theme.of(context)
                                   .textTheme
                                   .titleMedium
@@ -457,7 +460,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                             ),
                             Text(
-                              'Based on your recent workouts',
+                              AppLocalizations.of(context)
+                                  .basedOnRecentWorkouts,
                               style: Theme.of(context).textTheme.bodySmall,
                             ),
                           ],
@@ -501,7 +505,7 @@ class _HomeScreenState extends State<HomeScreen> {
             _showLogWorkoutOptions(plan);
           },
           icon: const Icon(Icons.add),
-          label: const Text('Log Workout'),
+          label: Text(AppLocalizations.of(context).logWorkout),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppTheme.primaryYellow,
             foregroundColor: AppTheme.darkBackground,
@@ -521,6 +525,8 @@ class _HomeScreenState extends State<HomeScreen> {
         plan != null ? plan['exercises'] as List<ExerciseModel> : <ExerciseModel>[];
     final targetGroup =
         plan != null ? plan['targetMuscleGroup'] as String : 'Full Body';
+    final l10n = AppLocalizations.of(context);
+    final translatedGroup = l10n.translateMuscleGroup(targetGroup);
 
     showModalBottomSheet(
       context: context,
@@ -548,7 +554,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 20),
                 Text(
-                  'Start a Workout',
+                  l10n.startWorkout,
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
                 const SizedBox(height: 20),
@@ -557,9 +563,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (exercises.isNotEmpty)
                   _buildWorkoutOption(
                     icon: Icons.lightbulb,
-                    title: 'Recommended: $targetGroup',
+                    title: '${l10n.recommendedPrefix}: $translatedGroup',
                     subtitle:
-                        '${exercises.length} exercises based on your history',
+                        '${exercises.length} ${l10n.exercisesCount}',
                     onTap: () {
                       Navigator.of(context).pop();
                       Navigator.of(this.context).push(
@@ -578,8 +584,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 // Option 2: Manual / custom workout
                 _buildWorkoutOption(
                   icon: Icons.edit_note,
-                  title: 'Custom Workout',
-                  subtitle: 'Pick your own exercises',
+                  title: l10n.customWorkout,
+                  subtitle: l10n.pickYourOwnExercises,
                   onTap: () {
                     Navigator.of(context).pop();
                     Navigator.of(this.context).push(
@@ -666,13 +672,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     const Icon(Icons.check_circle, color: AppTheme.primaryYellow),
                     const SizedBox(width: 8),
                     Text(
-                      'Workout Completed',
+                      AppLocalizations.of(context).workoutCompleted,
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                   ],
                 ),
                 Text(
-                  '${workout.durationMinutes} min',
+                  '${workout.durationMinutes} ${AppLocalizations.of(context).minutesShort}',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         color: AppTheme.primaryYellow,
                       ),
@@ -681,7 +687,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              '${workout.exercisesCompleted.length} exercises completed',
+              '${workout.exercisesCompleted.length} ${AppLocalizations.of(context).exercisesCompleted}',
               style: Theme.of(context).textTheme.bodyLarge,
             ),
             const SizedBox(height: 12),

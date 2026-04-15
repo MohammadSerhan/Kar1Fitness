@@ -4,6 +4,7 @@ import 'package:chewie/chewie.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../models/exercise_model.dart';
 import '../../theme/app_theme.dart';
+import '../../l10n/app_localizations.dart';
 
 class ExerciseDetailScreen extends StatefulWidget {
   final ExerciseModel exercise;
@@ -66,7 +67,7 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
       });
     } catch (e) {
       setState(() {
-        _videoError = 'Unable to load video';
+        _videoError = 'ERROR_LOAD_VIDEO';
       });
     }
   }
@@ -127,15 +128,18 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
 
                   // Muscle Groups
                   _buildInfoSection(
-                    'Target Muscles',
+                    AppLocalizations.of(context).targetMuscles,
                     Icons.fitness_center,
-                    widget.exercise.muscleGroups,
+                    widget.exercise.muscleGroups
+                        .map((m) =>
+                            AppLocalizations.of(context).translateMuscleGroup(m))
+                        .toList(),
                   ),
                   const SizedBox(height: 16),
 
                   // Equipment
                   _buildInfoSection(
-                    'Equipment',
+                    AppLocalizations.of(context).equipment,
                     Icons.build,
                     widget.exercise.equipment,
                   ),
@@ -168,7 +172,7 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
               ),
               const SizedBox(height: 16),
               Text(
-                _videoError!,
+                AppLocalizations.of(context).unableToLoadVideo,
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
             ],
@@ -252,7 +256,7 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
                 const Icon(Icons.info_outline, color: AppTheme.primaryYellow),
                 const SizedBox(width: 8),
                 Text(
-                  'Description',
+                  AppLocalizations.of(context).description,
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
               ],

@@ -3,6 +3,7 @@ import '../../models/exercise_model.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/exercise_card.dart';
+import '../../l10n/app_localizations.dart';
 import '../exercise/exercise_detail_screen.dart';
 
 class AboutScreen extends StatefulWidget {
@@ -55,9 +56,10 @@ class _AboutScreenState extends State<AboutScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('About'),
+        title: Text(l10n.about),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -70,7 +72,7 @@ class _AboutScreenState extends State<AboutScreen> {
 
             // Exercise Library Section
             Text(
-              'Exercise Library',
+              l10n.exerciseLibrary,
               style: Theme.of(context).textTheme.headlineMedium,
             ),
             const SizedBox(height: 12),
@@ -79,7 +81,7 @@ class _AboutScreenState extends State<AboutScreen> {
             TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'Search exercises...',
+                hintText: l10n.searchExercises,
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
@@ -104,6 +106,7 @@ class _AboutScreenState extends State<AboutScreen> {
   }
 
   Widget _buildGymInfo() {
+    final l10n = AppLocalizations.of(context);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -119,7 +122,7 @@ class _AboutScreenState extends State<AboutScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Gym Name
+            // Gym Name (brand — keep as-is in all languages)
             Text(
               'KAR1 FITNESS',
               style: Theme.of(context).textTheme.displaySmall?.copyWith(
@@ -131,21 +134,20 @@ class _AboutScreenState extends State<AboutScreen> {
 
             // Description
             Text(
-              'Your premier fitness destination for achieving your health and wellness goals. '
-              'We provide state-of-the-art equipment, expert guidance, and a supportive community '
-              'to help you on your fitness journey.',
+              l10n.gymDescription,
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 16),
 
             // Contact Info
-            _buildInfoRow(Icons.location_on, 'Location', 'Mjd El Kurum'),
+            _buildInfoRow(
+                Icons.location_on, l10n.location, l10n.locationValue),
             const SizedBox(height: 8),
-            _buildInfoRow(Icons.phone, 'Phone', '+972 (053) 277-6433'),
+            _buildInfoRow(Icons.phone, l10n.phone, '+972 (053) 277-6433'),
             const SizedBox(height: 8),
-            _buildInfoRow(Icons.email, 'Email', 'kar1fitness@gmail.com'),
+            _buildInfoRow(Icons.email, l10n.email, 'kar1fitness@gmail.com'),
             const SizedBox(height: 8),
-            _buildInfoRow(Icons.access_time, 'Hours', 'Sun-Thu: 7AM-10:30PM, Fri-Sat: 8AM-7PM'),
+            _buildInfoRow(Icons.access_time, l10n.hours, l10n.hoursValue),
           ],
         ),
       ),
@@ -201,8 +203,8 @@ class _AboutScreenState extends State<AboutScreen> {
               const SizedBox(height: 16),
               Text(
                 _searchController.text.isEmpty
-                    ? 'No exercises available yet'
-                    : 'No exercises found',
+                    ? AppLocalizations.of(context).noExercisesYet
+                    : AppLocalizations.of(context).noExercisesFound,
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
             ],

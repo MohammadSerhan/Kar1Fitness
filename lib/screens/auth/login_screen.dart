@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
+import '../../l10n/app_localizations.dart';
 import 'signup_screen.dart';
 import 'forgot_password_screen.dart';
 
@@ -59,6 +60,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -70,23 +72,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Logo
-                  Image.asset(
-                    'assets/images/logo.png',
-                    height: 120,
-                  ),
+                  Image.asset('assets/images/logo.png', height: 120),
                   const SizedBox(height: 48),
-
-                  // Welcome Text
                   Text(
-                    'Welcome Back!',
+                    l10n.welcomeBack,
                     style: Theme.of(context).textTheme.displaySmall,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Sign in to continue your fitness journey',
-                    style: Theme.of(context).textTheme.bodyMedium,
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 32),
@@ -95,17 +85,17 @@ class _LoginScreenState extends State<LoginScreen> {
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
-                      prefixIcon: Icon(Icons.email_outlined),
+                    decoration: InputDecoration(
+                      labelText: l10n.email,
+                      prefixIcon: const Icon(Icons.email_outlined),
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Please enter your email';
+                        return l10n.pleaseEnterEmail;
                       }
                       final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
                       if (!emailRegex.hasMatch(value.trim())) {
-                        return 'Please enter a valid email';
+                        return l10n.invalidEmail;
                       }
                       return null;
                     },
@@ -117,7 +107,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: _passwordController,
                     obscureText: _obscurePassword,
                     decoration: InputDecoration(
-                      labelText: 'Password',
+                      labelText: l10n.password,
                       prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
                         icon: Icon(
@@ -132,10 +122,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Please enter your password';
+                        return l10n.pleaseEnterPassword;
                       }
                       if (value.length < 6) {
-                        return 'Password must be at least 6 characters';
+                        return l10n.passwordTooShort;
                       }
                       return null;
                     },
@@ -144,7 +134,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   // Forgot Password
                   Align(
-                    alignment: Alignment.centerRight,
+                    alignment: AlignmentDirectional.centerEnd,
                     child: TextButton(
                       onPressed: () {
                         Navigator.of(context).push(
@@ -153,9 +143,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         );
                       },
-                      child: const Text(
-                        'Forgot Password?',
-                        style: TextStyle(color: AppTheme.primaryYellow),
+                      child: Text(
+                        l10n.forgotPassword,
+                        style: const TextStyle(color: AppTheme.primaryYellow),
                       ),
                     ),
                   ),
@@ -174,7 +164,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   AlwaysStoppedAnimation<Color>(Colors.black),
                             ),
                           )
-                        : const Text('Login'),
+                        : Text(l10n.login),
                   ),
                   const SizedBox(height: 16),
 
@@ -183,7 +173,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        "Don't have an account? ",
+                        l10n.dontHaveAccount,
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                       TextButton(
@@ -194,9 +184,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           );
                         },
-                        child: const Text(
-                          'Sign Up',
-                          style: TextStyle(
+                        child: Text(
+                          l10n.signup,
+                          style: const TextStyle(
                             color: AppTheme.primaryYellow,
                             fontWeight: FontWeight.bold,
                           ),

@@ -6,6 +6,7 @@ import '../../models/workout_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/app_theme.dart';
+import '../../l10n/app_localizations.dart';
 
 class WorkoutRecordingScreen extends StatefulWidget {
   final DateTime selectedDate;
@@ -65,10 +66,11 @@ class _WorkoutRecordingScreenState extends State<WorkoutRecordingScreen> {
   }
 
   Future<void> _saveWorkout() async {
+    final l10n = AppLocalizations.of(context);
     if (_exerciseEntries.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please add at least one exercise'),
+        SnackBar(
+          content: Text(l10n.fillSetsReps),
           backgroundColor: Colors.orange,
         ),
       );
@@ -79,8 +81,8 @@ class _WorkoutRecordingScreenState extends State<WorkoutRecordingScreen> {
     for (var entry in _exerciseEntries) {
       if (entry.sets == 0 || entry.reps == 0) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please fill in sets and reps for all exercises'),
+          SnackBar(
+            content: Text(l10n.fillSetsReps),
             backgroundColor: Colors.orange,
           ),
         );
@@ -115,8 +117,8 @@ class _WorkoutRecordingScreenState extends State<WorkoutRecordingScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Workout saved successfully!'),
+          SnackBar(
+            content: Text(AppLocalizations.of(context).workoutSaved),
             backgroundColor: Colors.green,
           ),
         );
@@ -188,14 +190,14 @@ class _WorkoutRecordingScreenState extends State<WorkoutRecordingScreen> {
                                 color: AppTheme.primaryYellow),
                             const SizedBox(width: 8),
                             Text(
-                              'Recording Workout',
+                              AppLocalizations.of(context).recordingWorkout,
                               style: Theme.of(context).textTheme.titleLarge,
                             ),
                           ],
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          '${_exerciseEntries.length} exercises added',
+                          '${_exerciseEntries.length} / ${AppLocalizations.of(context).exercisesCompleted}',
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
                       ],
@@ -217,12 +219,12 @@ class _WorkoutRecordingScreenState extends State<WorkoutRecordingScreen> {
                               ),
                               const SizedBox(height: 16),
                               Text(
-                                'No exercises added yet',
+                                AppLocalizations.of(context).noExercisesAdded,
                                 style: Theme.of(context).textTheme.bodyLarge,
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'Tap the button below to add exercises',
+                                AppLocalizations.of(context).tapToAddExercises,
                                 style: Theme.of(context).textTheme.bodySmall,
                               ),
                             ],
@@ -266,7 +268,7 @@ class _WorkoutRecordingScreenState extends State<WorkoutRecordingScreen> {
                         ElevatedButton.icon(
                           onPressed: _addExercise,
                           icon: const Icon(Icons.add),
-                          label: const Text('Add Exercise'),
+                          label: Text(AppLocalizations.of(context).addExercise),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.mediumGrey,
                             minimumSize: const Size(double.infinity, 48),
@@ -276,7 +278,8 @@ class _WorkoutRecordingScreenState extends State<WorkoutRecordingScreen> {
                         ElevatedButton.icon(
                           onPressed: _exerciseEntries.isEmpty ? null : _saveWorkout,
                           icon: const Icon(Icons.check),
-                          label: const Text('Complete Workout'),
+                          label:
+                              Text(AppLocalizations.of(context).completeWorkout),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.primaryYellow,
                             foregroundColor: AppTheme.darkBackground,
@@ -377,10 +380,11 @@ class _ExerciseEntryCardState extends State<_ExerciseEntryCard> {
                   child: TextField(
                     controller: _setsController,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Sets',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: InputDecoration(
+                      labelText: AppLocalizations.of(context).sets,
+                      border: const OutlineInputBorder(),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
                     ),
                     onChanged: (value) {
                       widget.entry.sets = int.tryParse(value) ?? 0;
@@ -393,10 +397,11 @@ class _ExerciseEntryCardState extends State<_ExerciseEntryCard> {
                   child: TextField(
                     controller: _repsController,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Reps',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: InputDecoration(
+                      labelText: AppLocalizations.of(context).reps,
+                      border: const OutlineInputBorder(),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
                     ),
                     onChanged: (value) {
                       widget.entry.reps = int.tryParse(value) ?? 0;
@@ -408,11 +413,13 @@ class _ExerciseEntryCardState extends State<_ExerciseEntryCard> {
                 Expanded(
                   child: TextField(
                     controller: _weightController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(
-                      labelText: 'Weight (kg)',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      labelText: AppLocalizations.of(context).weightKg,
+                      border: const OutlineInputBorder(),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
                     ),
                     onChanged: (value) {
                       widget.entry.weight = double.tryParse(value) ?? 0.0;
@@ -459,15 +466,15 @@ class _ExerciseSelectionDialogState extends State<_ExerciseSelectionDialog> {
               child: Column(
                 children: [
                   Text(
-                    'Select Exercise',
+                    AppLocalizations.of(context).selectExercise,
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const SizedBox(height: 16),
                   TextField(
-                    decoration: const InputDecoration(
-                      hintText: 'Search exercises...',
-                      prefixIcon: Icon(Icons.search),
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      hintText: AppLocalizations.of(context).searchExercises,
+                      prefixIcon: const Icon(Icons.search),
+                      border: const OutlineInputBorder(),
                     ),
                     onChanged: (value) {
                       setState(() {
@@ -483,7 +490,7 @@ class _ExerciseSelectionDialogState extends State<_ExerciseSelectionDialog> {
               child: filteredExercises.isEmpty
                   ? Center(
                       child: Text(
-                        'No exercises found',
+                        AppLocalizations.of(context).noExercisesFound,
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     )

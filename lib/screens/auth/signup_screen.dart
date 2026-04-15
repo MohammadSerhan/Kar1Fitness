@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
+import '../../l10n/app_localizations.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -62,9 +63,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Sign Up'),
+        title: Text(l10n.signUpTitle),
       ),
       body: SafeArea(
         child: Center(
@@ -83,15 +85,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   ),
                   const SizedBox(height: 32),
 
-                  // Title
                   Text(
-                    'Create Account',
+                    l10n.createAccount,
                     style: Theme.of(context).textTheme.displaySmall,
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Join KAR1 Fitness today',
+                    l10n.joinKar1,
                     style: Theme.of(context).textTheme.bodyMedium,
                     textAlign: TextAlign.center,
                   ),
@@ -100,13 +101,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   // Name Field
                   TextFormField(
                     controller: _nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Full Name',
-                      prefixIcon: Icon(Icons.person_outline),
+                    decoration: InputDecoration(
+                      labelText: l10n.fullName,
+                      prefixIcon: const Icon(Icons.person_outline),
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Please enter your name';
+                        return l10n.pleaseEnterName;
                       }
                       return null;
                     },
@@ -117,17 +118,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
-                      prefixIcon: Icon(Icons.email_outlined),
+                    decoration: InputDecoration(
+                      labelText: l10n.email,
+                      prefixIcon: const Icon(Icons.email_outlined),
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Please enter your email';
+                        return l10n.pleaseEnterEmail;
                       }
                       final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
                       if (!emailRegex.hasMatch(value.trim())) {
-                        return 'Please enter a valid email';
+                        return l10n.invalidEmail;
                       }
                       return null;
                     },
@@ -139,7 +140,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     controller: _passwordController,
                     obscureText: _obscurePassword,
                     decoration: InputDecoration(
-                      labelText: 'Password',
+                      labelText: l10n.password,
                       prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
                         icon: Icon(
@@ -154,10 +155,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Please enter a password';
+                        return l10n.pleaseEnterPassword;
                       }
                       if (value.length < 6) {
-                        return 'Password must be at least 6 characters';
+                        return l10n.passwordTooShort;
                       }
                       return null;
                     },
@@ -169,7 +170,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     controller: _confirmPasswordController,
                     obscureText: _obscureConfirmPassword,
                     decoration: InputDecoration(
-                      labelText: 'Confirm Password',
+                      labelText: l10n.confirmPassword,
                       prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
                         icon: Icon(
@@ -178,17 +179,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               : Icons.visibility_off_outlined,
                         ),
                         onPressed: () {
-                          setState(() =>
-                              _obscureConfirmPassword = !_obscureConfirmPassword);
+                          setState(() => _obscureConfirmPassword =
+                              !_obscureConfirmPassword);
                         },
                       ),
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Please confirm your password';
+                        return l10n.pleaseConfirmPassword;
                       }
                       if (value != _passwordController.text) {
-                        return 'Passwords do not match';
+                        return l10n.passwordsDoNotMatch;
                       }
                       return null;
                     },
@@ -208,7 +209,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                   AlwaysStoppedAnimation<Color>(Colors.black),
                             ),
                           )
-                        : const Text('Sign Up'),
+                        : Text(l10n.signup),
                   ),
                   const SizedBox(height: 16),
 
@@ -217,16 +218,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        'Already have an account? ',
+                        l10n.alreadyHaveAccount,
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                       TextButton(
                         onPressed: () {
                           Navigator.of(context).pop();
                         },
-                        child: const Text(
-                          'Login',
-                          style: TextStyle(
+                        child: Text(
+                          l10n.login,
+                          style: const TextStyle(
                             color: AppTheme.primaryYellow,
                             fontWeight: FontWeight.bold,
                           ),

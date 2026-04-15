@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:health/health.dart';
 import '../services/health_service.dart';
 import '../theme/app_theme.dart';
+import '../l10n/app_localizations.dart';
 
 class HealthDataCard extends StatefulWidget {
   const HealthDataCard({super.key});
@@ -92,15 +93,16 @@ class _HealthDataCardState extends State<HealthDataCard>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     if (_isLoading) {
-      return const Card(
+      return Card(
         child: Padding(
-          padding: EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(16.0),
           child: Column(
             children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 8),
-              Text('Loading health data...'),
+              const CircularProgressIndicator(),
+              const SizedBox(height: 8),
+              Text(l10n.loadingHealthData),
             ],
           ),
         ),
@@ -120,12 +122,12 @@ class _HealthDataCardState extends State<HealthDataCard>
               ),
               const SizedBox(height: 8),
               Text(
-                'Health Data',
+                l10n.healthData,
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 8),
               Text(
-                'Connect your wearable device to track steps, calories, and more!',
+                l10n.connectWearable,
                 style: Theme.of(context).textTheme.bodyMedium,
                 textAlign: TextAlign.center,
               ),
@@ -133,7 +135,7 @@ class _HealthDataCardState extends State<HealthDataCard>
               ElevatedButton.icon(
                 onPressed: _requestPermission,
                 icon: const Icon(Icons.check_circle_outline),
-                label: const Text('Grant Permission'),
+                label: Text(l10n.grantPermission),
               ),
             ],
           ),
@@ -151,13 +153,12 @@ class _HealthDataCardState extends State<HealthDataCard>
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Today\'s Activity',
+                  l10n.todaysActivity,
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 IconButton(
                   icon: const Icon(Icons.refresh),
                   onPressed: _loadHealthData,
-                  tooltip: 'Refresh',
                 ),
               ],
             ),
@@ -167,7 +168,7 @@ class _HealthDataCardState extends State<HealthDataCard>
                 Expanded(
                   child: _buildHealthMetric(
                     icon: Icons.directions_walk,
-                    label: 'Steps',
+                    label: l10n.steps,
                     value: _healthData['steps']?.toString() ?? '0',
                     color: Colors.blue,
                   ),
@@ -176,7 +177,7 @@ class _HealthDataCardState extends State<HealthDataCard>
                 Expanded(
                   child: _buildHealthMetric(
                     icon: Icons.local_fire_department,
-                    label: 'Calories',
+                    label: l10n.calories,
                     value: _healthData['calories']?.toString() ?? '0',
                     color: Colors.orange,
                   ),
@@ -189,7 +190,7 @@ class _HealthDataCardState extends State<HealthDataCard>
                 Expanded(
                   child: _buildHealthMetric(
                     icon: Icons.route,
-                    label: 'Distance (km)',
+                    label: l10n.distanceKm,
                     value: _healthData['distance_km']?.toString() ?? '0.0',
                     color: Colors.green,
                   ),
@@ -198,7 +199,7 @@ class _HealthDataCardState extends State<HealthDataCard>
                 Expanded(
                   child: _buildHealthMetric(
                     icon: Icons.timer,
-                    label: 'Active Min',
+                    label: l10n.activeMin,
                     value: _healthData['active_minutes']?.toString() ?? '0',
                     color: Colors.purple,
                   ),

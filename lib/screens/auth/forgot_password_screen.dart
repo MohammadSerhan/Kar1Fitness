@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
+import '../../l10n/app_localizations.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -57,9 +58,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Reset Password'),
+        title: Text(l10n.resetPassword),
       ),
       body: SafeArea(
         child: Center(
@@ -79,14 +81,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   const SizedBox(height: 32),
 
                   Text(
-                    'Forgot Password?',
+                    l10n.forgotPassword,
                     style: Theme.of(context).textTheme.displaySmall,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Enter your email address and we\'ll send you a link to reset your password.',
-                    style: Theme.of(context).textTheme.bodyMedium,
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 32),
@@ -95,17 +91,17 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
-                      prefixIcon: Icon(Icons.email_outlined),
+                    decoration: InputDecoration(
+                      labelText: l10n.email,
+                      prefixIcon: const Icon(Icons.email_outlined),
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Please enter your email';
+                        return l10n.pleaseEnterEmail;
                       }
                       final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
                       if (!emailRegex.hasMatch(value.trim())) {
-                        return 'Please enter a valid email';
+                        return l10n.invalidEmail;
                       }
                       return null;
                     },
@@ -125,7 +121,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                                   AlwaysStoppedAnimation<Color>(Colors.black),
                             ),
                           )
-                        : const Text('Send Reset Link'),
+                        : Text(l10n.resetPassword),
                   ),
                 ],
               ),
