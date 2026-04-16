@@ -56,6 +56,11 @@ firebase_options.dart
 .env
 *.env
 
+# Signing keys (DO NOT COMMIT)
+android/key.properties
+*.jks
+*.keystore
+
 # Local Gradle cache
 .gradle/
 .gradle-cache/
