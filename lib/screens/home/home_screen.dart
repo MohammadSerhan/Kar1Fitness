@@ -204,8 +204,16 @@ class _HomeScreenState extends State<HomeScreen> {
     return _workoutStream!;
   }
 
-  void _handleRequestExpand(String exerciseId) {
+  Future<void> _handleRequestExpand(String exerciseId) async {
     setState(() => _expandedExerciseId = exerciseId);
+    // The workout duration starts here — the moment the user first opens a
+    // tile. Counting from first mark-done misses the time spent watching
+    // the video and actually doing the exercise before ticking it off.
+    if (_draftStartedAt == null) {
+      final now = DateTime.now();
+      if (mounted) setState(() => _draftStartedAt = now);
+      await _draftService.setStartedAt(_selectedDate, now);
+    }
   }
 
   void _handleRequestCollapse() {
@@ -213,7 +221,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _handleMarkDone(ExerciseDraftEntry entry) async {
-    final wasFirst = _draftEntries.isEmpty;
     final next = Map<String, ExerciseDraftEntry>.from(_draftEntries);
     next[entry.exerciseId] = entry;
     setState(() {
@@ -221,11 +228,6 @@ class _HomeScreenState extends State<HomeScreen> {
       _expandedExerciseId = null;
     });
     await _draftService.setEntries(_selectedDate, next);
-    if (wasFirst && _draftStartedAt == null) {
-      final now = DateTime.now();
-      if (mounted) setState(() => _draftStartedAt = now);
-      await _draftService.setStartedAt(_selectedDate, now);
-    }
   }
 
   Future<void> _handleRemoveEntry(String exerciseId) async {
@@ -432,11 +434,16 @@ class _HomeScreenState extends State<HomeScreen> {
   /// Shows today's completed workout only if one was already recorded — and
   /// only if the user isn't actively ticking a new draft, since finishing the
   /// draft will replace whatever is currently logged for today.
+  ///
+  /// The draft-state check lives *inside* the builder rather than gating the
+  /// StreamBuilder itself — otherwise the subscription unmounts during an
+  /// active session and we miss the Firestore emission that fires when the
+  /// save completes (broadcast streams don't replay to new subscribers).
   Widget _buildTodayWorkoutIfExists(String userId) {
-    if (_draftEntries.isNotEmpty) return const SizedBox.shrink();
     return StreamBuilder<WorkoutModel?>(
       stream: _ensureWorkoutStream(userId, _selectedDate),
       builder: (context, snapshot) {
+        if (_draftEntries.isNotEmpty) return const SizedBox.shrink();
         final workout = snapshot.data;
         if (workout == null) return const SizedBox.shrink();
 
