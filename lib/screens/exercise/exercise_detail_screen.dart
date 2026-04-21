@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_video_player_plus/cached_video_player_plus.dart';
 import 'package:chewie/chewie.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:video_player/video_player.dart';
 import '../../models/exercise_model.dart';
 import '../../theme/app_theme.dart';
 import '../../l10n/app_localizations.dart';
@@ -40,6 +41,8 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
     try {
       _cachedPlayer = CachedVideoPlayerPlus.networkUrl(
         Uri.parse(widget.exercise.videoUrl),
+        // Don't interrupt the user's background music.
+        videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
       );
 
       await _cachedPlayer!.initialize();

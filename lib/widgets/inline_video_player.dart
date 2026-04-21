@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_video_player_plus/cached_video_player_plus.dart';
 import 'package:chewie/chewie.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:video_player/video_player.dart';
 import '../theme/app_theme.dart';
 import '../l10n/app_localizations.dart';
 
@@ -49,8 +50,13 @@ class _InlineVideoPlayerState extends State<InlineVideoPlayer> {
 
   Future<void> _initialize() async {
     try {
-      _cachedPlayer =
-          CachedVideoPlayerPlus.networkUrl(Uri.parse(widget.videoUrl));
+      _cachedPlayer = CachedVideoPlayerPlus.networkUrl(
+        Uri.parse(widget.videoUrl),
+        // Allow the user's background music (Spotify, Apple Music, etc.) to
+        // keep playing. Without this the OS audio session defaults to a
+        // category that interrupts other apps even though we mute the video.
+        videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+      );
       await _cachedPlayer!.initialize();
       final controller = _cachedPlayer!.controller;
       await controller.setVolume(0);
