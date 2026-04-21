@@ -1,7 +1,7 @@
 name: kar1_fitness
 description: A comprehensive gym application for KAR1 Fitness facility
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.1+3
 
 environment:
   sdk: '>=3.0.0 <4.0.0'

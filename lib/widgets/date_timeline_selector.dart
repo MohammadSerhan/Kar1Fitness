@@ -26,12 +26,15 @@ class _DateTimelineSelectorState extends State<DateTimelineSelector> {
   void initState() {
     super.initState();
     _selectedDate = widget.initialDate ?? DateTime.now();
-    _scrollController = ScrollController();
 
-    // Auto-scroll to today on load
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollToSelectedDate();
-    });
+    // Calculate initial scroll offset so it starts at the right position
+    final today = DateTime.now();
+    final daysSinceSelected = today.difference(_selectedDate).inDays;
+    final initialOffset = daysSinceSelected >= 0 && daysSinceSelected < widget.daysToShow
+        ? (widget.daysToShow - daysSinceSelected - 1) * 70.0
+        : 0.0;
+
+    _scrollController = ScrollController(initialScrollOffset: initialOffset);
   }
 
   @override
@@ -40,19 +43,15 @@ class _DateTimelineSelectorState extends State<DateTimelineSelector> {
     super.dispose();
   }
 
-  void _scrollToSelectedDate() {
+  void _scrollToDate(DateTime date) {
     final today = DateTime.now();
-    final daysSinceSelected = today.difference(_selectedDate).inDays;
+    final daysSinceSelected = today.difference(date).inDays;
 
     if (daysSinceSelected >= 0 && daysSinceSelected < widget.daysToShow) {
       final scrollPosition = (widget.daysToShow - daysSinceSelected - 1) * 70.0;
 
       if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          scrollPosition,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-        );
+        _scrollController.jumpTo(scrollPosition);
       }
     }
   }
@@ -100,6 +99,7 @@ class _DateTimelineSelectorState extends State<DateTimelineSelector> {
               setState(() {
                 _selectedDate = date;
               });
+              _scrollToDate(date);
               widget.onDateSelected(date);
             },
             child: Container(

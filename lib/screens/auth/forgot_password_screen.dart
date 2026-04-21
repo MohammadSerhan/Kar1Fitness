@@ -15,6 +15,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   bool _isLoading = false;
+  bool _emailSent = false;
 
   @override
   void dispose() {
@@ -26,31 +27,32 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
+    final l10n = AppLocalizations.of(context);
 
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
       await authService.resetPassword(_emailController.text.trim());
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Password reset email sent! Check your inbox.'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        Navigator.of(context).pop();
+        setState(() {
+          _emailSent = true;
+          _isLoading = false;
+        });
       }
     } catch (e) {
       if (mounted) {
+        String message;
+        if (e.toString() == 'no-account') {
+          message = l10n.noAccountFound;
+        } else {
+          message = e.toString();
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString()),
+            content: Text(message),
             backgroundColor: Colors.red,
           ),
         );
-      }
-    } finally {
-      if (mounted) {
         setState(() => _isLoading = false);
       }
     }
@@ -59,6 +61,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+
+    if (_emailSent) {
+      return _buildSuccessScreen(l10n);
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.resetPassword),
@@ -108,7 +115,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  // Reset Button
+                  // Send Reset Link Button
                   ElevatedButton(
                     onPressed: _isLoading ? null : _resetPassword,
                     child: _isLoading
@@ -121,10 +128,82 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                                   AlwaysStoppedAnimation<Color>(Colors.black),
                             ),
                           )
-                        : Text(l10n.resetPassword),
+                        : Text(l10n.sendResetLink),
                   ),
                 ],
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSuccessScreen(AppLocalizations l10n) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(l10n.resetPassword),
+        automaticallyImplyLeading: false,
+      ),
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryYellow.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.mark_email_read,
+                    size: 80,
+                    color: AppTheme.primaryYellow,
+                  ),
+                ),
+                const SizedBox(height: 32),
+
+                Text(
+                  l10n.resetEmailSent,
+                  style: Theme.of(context).textTheme.displaySmall,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+
+                Text(
+                  l10n.resetEmailSentDescription,
+                  style: Theme.of(context).textTheme.bodyLarge,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+
+                Text(
+                  _emailController.text.trim(),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: AppTheme.primaryYellow,
+                        fontWeight: FontWeight.bold,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+
+                Text(
+                  l10n.checkInbox,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 40),
+
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: Text(l10n.backToLogin),
+                ),
+              ],
             ),
           ),
         ),

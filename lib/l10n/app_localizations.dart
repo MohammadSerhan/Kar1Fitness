@@ -85,6 +85,12 @@ class AppLocalizations {
   String get passwordsDoNotMatch => t('passwordsDoNotMatch');
   String get logoutConfirmTitle => t('logoutConfirmTitle');
   String get logoutConfirmMessage => t('logoutConfirmMessage');
+  String get noAccountFound => t('noAccountFound');
+  String get resetEmailSent => t('resetEmailSent');
+  String get resetEmailSentDescription => t('resetEmailSentDescription');
+  String get checkInbox => t('checkInbox');
+  String get backToLogin => t('backToLogin');
+  String get sendResetLink => t('sendResetLink');
 
   // Home
   String get welcomeBackComma => t('welcomeBackComma');
@@ -221,6 +227,12 @@ class AppLocalizations {
       'passwordsDoNotMatch': 'Passwords do not match',
       'logoutConfirmTitle': 'Logout',
       'logoutConfirmMessage': 'Are you sure you want to logout?',
+      'noAccountFound': 'No account found with this email address.',
+      'resetEmailSent': 'Email Sent!',
+      'resetEmailSentDescription': 'We sent a password reset link to',
+      'checkInbox': 'Check your inbox and follow the link to reset your password.',
+      'backToLogin': 'Back to Login',
+      'sendResetLink': 'Send Reset Link',
 
       'welcomeBackComma': 'Welcome back,',
       'recommendedFocus': 'Recommended Focus',
@@ -329,6 +341,12 @@ class AppLocalizations {
       'passwordsDoNotMatch': 'הסיסמאות אינן תואמות',
       'logoutConfirmTitle': 'התנתקות',
       'logoutConfirmMessage': 'האם אתה בטוח שברצונך להתנתק?',
+      'noAccountFound': 'לא נמצא חשבון עם כתובת דוא"ל זו.',
+      'resetEmailSent': 'הדוא"ל נשלח!',
+      'resetEmailSentDescription': 'שלחנו קישור לאיפוס סיסמה אל',
+      'checkInbox': 'בדוק את תיבת הדואר שלך ולחץ על הקישור לאיפוס הסיסמה.',
+      'backToLogin': 'חזרה להתחברות',
+      'sendResetLink': 'שלח קישור איפוס',
 
       'welcomeBackComma': 'ברוך שובך,',
       'recommendedFocus': 'מיקוד מומלץ',
@@ -437,6 +455,12 @@ class AppLocalizations {
       'passwordsDoNotMatch': 'كلمات المرور غير متطابقة',
       'logoutConfirmTitle': 'تسجيل الخروج',
       'logoutConfirmMessage': 'هل أنت متأكد من تسجيل الخروج؟',
+      'noAccountFound': 'لم يتم العثور على حساب بهذا البريد الإلكتروني.',
+      'resetEmailSent': 'تم إرسال البريد!',
+      'resetEmailSentDescription': 'أرسلنا رابط إعادة تعيين كلمة المرور إلى',
+      'checkInbox': 'تحقق من بريدك الوارد واتبع الرابط لإعادة تعيين كلمة المرور.',
+      'backToLogin': 'العودة لتسجيل الدخول',
+      'sendResetLink': 'إرسال رابط الإعادة',
 
       'welcomeBackComma': 'مرحباً بعودتك،',
       'recommendedFocus': 'التركيز الموصى به',

@@ -79,9 +79,19 @@ class AuthService {
     await _auth.signOut();
   }
 
-  // Reset password
+  // Check if a user exists by email
+  Future<bool> userExists(String email) async {
+    final methods = await _auth.fetchSignInMethodsForEmail(email);
+    return methods.isNotEmpty;
+  }
+
+  // Reset password — verifies user exists first, then sends the email
   Future<void> resetPassword(String email) async {
     try {
+      final exists = await userExists(email);
+      if (!exists) {
+        throw 'no-account';
+      }
       await _auth.sendPasswordResetEmail(email: email);
     } on FirebaseAuthException catch (e) {
       throw _handleAuthException(e);
