@@ -52,7 +52,11 @@ class _WorkoutRecordingScreenState extends State<WorkoutRecordingScreen> {
   }
 
   Future<void> _addExercise() async {
-    final exercises = await _firestoreService.getAllExercises();
+    final all = await _firestoreService.getAllExercises();
+    // Legacy recording screen only logs main exercises; warm-ups/cool-downs
+    // are wired into the home-screen flow.
+    final exercises =
+        all.where((e) => e.type == ExerciseType.main).toList();
 
     if (!mounted) return;
 

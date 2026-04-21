@@ -5,11 +5,18 @@ import 'package:permission_handler/permission_handler.dart';
 class HealthService {
   final Health _health = Health();
 
+  // Distance uses different HealthDataType enum values per platform:
+  // iOS HealthKit exposes DISTANCE_WALKING_RUNNING; Android Health Connect
+  // exposes DISTANCE_DELTA. Requesting the wrong one returns no data.
+  static final HealthDataType _distanceType = Platform.isIOS
+      ? HealthDataType.DISTANCE_WALKING_RUNNING
+      : HealthDataType.DISTANCE_DELTA;
+
   // Define the types of health data to access
   static final List<HealthDataType> types = [
     HealthDataType.STEPS,
     HealthDataType.ACTIVE_ENERGY_BURNED,
-    HealthDataType.DISTANCE_DELTA,
+    _distanceType,
     HealthDataType.HEART_RATE,
     HealthDataType.WEIGHT,
     HealthDataType.HEIGHT,
@@ -65,7 +72,7 @@ class HealthService {
 
       // Get distance (in meters, convert to km)
       final distanceMeters = await _getHealthDataSum(
-        HealthDataType.DISTANCE_DELTA,
+        _distanceType,
         startOfDay,
         endOfDay,
       );
@@ -113,7 +120,7 @@ class HealthService {
       );
 
       final distanceMeters = await _getHealthDataSum(
-        HealthDataType.DISTANCE_DELTA,
+        _distanceType,
         startOfDay,
         endOfDay,
       );

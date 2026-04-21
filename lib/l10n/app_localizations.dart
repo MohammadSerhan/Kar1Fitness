@@ -124,6 +124,7 @@ class AppLocalizations {
   String get activeMin => t('activeMin');
   String get loadingHealthData => t('loadingHealthData');
   String get noHealthData => t('noHealthData');
+  String get reRequestPermissions => t('reRequestPermissions');
 
   // Profile
   String get profile => t('profile');
@@ -143,6 +144,19 @@ class AppLocalizations {
   String get sets => t('sets');
   String get reps => t('reps');
   String get weightKg => t('weightKg');
+  String get durationMinutes => t('durationMinutes');
+  String get fillDurationMinutes => t('fillDurationMinutes');
+
+  // Warm-up / cool-down
+  String get warmup => t('warmup');
+  String get cooldown => t('cooldown');
+  String get required => t('required');
+  String get optional => t('optional');
+  String get warmupNotice => t('warmupNotice');
+  String get cooldownNotice => t('cooldownNotice');
+  String get noWarmupTitle => t('noWarmupTitle');
+  String get noWarmupMessage => t('noWarmupMessage');
+  String get continueAnyway => t('continueAnyway');
   String get selectExercise => t('selectExercise');
   String get searchExercises => t('searchExercises');
   String get noExercisesFound => t('noExercisesFound');
@@ -271,6 +285,7 @@ class AppLocalizations {
       'activeMin': 'Active Min',
       'loadingHealthData': 'Loading health data...',
       'noHealthData': 'No health data available',
+      'reRequestPermissions': 'Re-request health permissions',
 
       'profile': 'Profile',
       'statistics': 'Statistics',
@@ -288,11 +303,26 @@ class AppLocalizations {
       'sets': 'Sets',
       'reps': 'Reps',
       'weightKg': 'Weight (kg)',
+      'durationMinutes': 'Duration (min)',
+      'fillDurationMinutes': 'Please enter a duration in minutes',
       'selectExercise': 'Select Exercise',
       'searchExercises': 'Search exercises...',
       'noExercisesFound': 'No exercises found',
       'fillSetsReps': 'Please fill in sets and reps for all exercises',
       'workoutSaved': 'Workout saved successfully!',
+
+      'warmup': 'Warm-up',
+      'cooldown': 'Cool-down',
+      'required': 'Required',
+      'optional': 'Optional',
+      'warmupNotice':
+          'Start every workout with a warm-up — 5–10 min of cardio plus a few mobility exercises protects your joints and primes your muscles.',
+      'cooldownNotice':
+          'Finish with light cardio and stretches to help recovery and reduce soreness.',
+      'noWarmupTitle': 'Skip warm-up?',
+      'noWarmupMessage':
+          "You haven't marked any warm-up exercises. Warming up reduces injury risk. Finish anyway?",
+      'continueAnyway': 'Finish anyway',
 
       'targetMuscles': 'Target Muscles',
       'equipment': 'Equipment',
@@ -391,6 +421,7 @@ class AppLocalizations {
       'activeMin': 'דק\' פעילות',
       'loadingHealthData': 'טוען נתוני בריאות...',
       'noHealthData': 'אין נתוני בריאות זמינים',
+      'reRequestPermissions': 'בקש מחדש הרשאות בריאות',
 
       'profile': 'פרופיל',
       'statistics': 'סטטיסטיקה',
@@ -408,11 +439,26 @@ class AppLocalizations {
       'sets': 'סטים',
       'reps': 'חזרות',
       'weightKg': 'משקל (ק"ג)',
+      'durationMinutes': 'משך (דק\')',
+      'fillDurationMinutes': 'נא להזין משך זמן בדקות',
       'selectExercise': 'בחר תרגיל',
       'searchExercises': 'חיפוש תרגילים...',
       'noExercisesFound': 'לא נמצאו תרגילים',
       'fillSetsReps': 'נא למלא סטים וחזרות עבור כל התרגילים',
       'workoutSaved': 'האימון נשמר בהצלחה!',
+
+      'warmup': 'חימום',
+      'cooldown': 'שחרור',
+      'required': 'חובה',
+      'optional': 'רשות',
+      'warmupNotice':
+          'התחל כל אימון בחימום — 5-10 דקות קרדיו ומספר תרגילי ניידות מגנים על המפרקים ומכינים את השרירים.',
+      'cooldownNotice':
+          'סיים עם קרדיו קל ומתיחות כדי לסייע להתאוששות ולהפחית כאבי שרירים.',
+      'noWarmupTitle': 'לדלג על החימום?',
+      'noWarmupMessage':
+          'לא סימנת תרגילי חימום. חימום מפחית סיכון לפציעה. לסיים בכל זאת?',
+      'continueAnyway': 'סיים בכל זאת',
 
       'targetMuscles': 'שרירי מטרה',
       'equipment': 'ציוד',
@@ -511,6 +557,7 @@ class AppLocalizations {
       'activeMin': 'دقائق النشاط',
       'loadingHealthData': 'جاري تحميل البيانات الصحية...',
       'noHealthData': 'لا توجد بيانات صحية متاحة',
+      'reRequestPermissions': 'طلب أذونات الصحة مجدداً',
 
       'profile': 'الملف الشخصي',
       'statistics': 'الإحصائيات',
@@ -528,11 +575,26 @@ class AppLocalizations {
       'sets': 'مجموعات',
       'reps': 'تكرارات',
       'weightKg': 'الوزن (كجم)',
+      'durationMinutes': 'المدة (دقيقة)',
+      'fillDurationMinutes': 'يرجى إدخال المدة بالدقائق',
       'selectExercise': 'اختر تمريناً',
       'searchExercises': 'البحث عن تمارين...',
       'noExercisesFound': 'لم يتم العثور على تمارين',
       'fillSetsReps': 'يرجى ملء المجموعات والتكرارات لجميع التمارين',
       'workoutSaved': 'تم حفظ التمرين بنجاح!',
+
+      'warmup': 'إحماء',
+      'cooldown': 'تهدئة',
+      'required': 'إلزامي',
+      'optional': 'اختياري',
+      'warmupNotice':
+          'ابدأ كل تمرين بالإحماء — 5-10 دقائق من الكارديو بالإضافة إلى بعض تمارين المرونة تحمي مفاصلك وتُهيئ عضلاتك.',
+      'cooldownNotice':
+          'أنهِ بكارديو خفيف وتمارين إطالة للمساعدة في الاستشفاء وتقليل آلام العضلات.',
+      'noWarmupTitle': 'تخطي الإحماء؟',
+      'noWarmupMessage':
+          'لم تُحدد أي تمارين إحماء. الإحماء يُقلل من خطر الإصابة. إنهاء على أي حال؟',
+      'continueAnyway': 'إنهاء على أي حال',
 
       'targetMuscles': 'العضلات المستهدفة',
       'equipment': 'المعدات',

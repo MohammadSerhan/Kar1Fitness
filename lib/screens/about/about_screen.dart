@@ -34,7 +34,11 @@ class _AboutScreenState extends State<AboutScreen> {
 
   Future<void> _loadExercises() async {
     setState(() => _isLoading = true);
-    _allExercises = await _firestoreService.getAllExercises();
+    final all = await _firestoreService.getAllExercises();
+    // The library surfaces main exercises only — warm-ups and cool-downs
+    // are used by the active-workout flow and would be noise here.
+    _allExercises =
+        all.where((e) => e.type == ExerciseType.main).toList();
     _filteredExercises = _allExercises;
     setState(() => _isLoading = false);
   }

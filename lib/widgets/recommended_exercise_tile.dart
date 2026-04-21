@@ -6,6 +6,9 @@ import '../theme/app_theme.dart';
 import '../l10n/app_localizations.dart';
 import 'inline_video_player.dart';
 
+bool _isDurationExercise(ExerciseModel e) =>
+    e.metric == ExerciseMetric.duration;
+
 /// Inline expandable tile shown in the home-screen "Recommended Focus" card
 /// during an active workout. Collapses to a compact row; when tapped,
 /// expands in place to show the exercise video plus sets/reps/weight fields
@@ -40,6 +43,7 @@ class _RecommendedExerciseTileState extends State<RecommendedExerciseTile> {
   late TextEditingController _setsController;
   late TextEditingController _repsController;
   late TextEditingController _weightController;
+  late TextEditingController _durationController;
 
   @override
   void initState() {
@@ -47,6 +51,7 @@ class _RecommendedExerciseTileState extends State<RecommendedExerciseTile> {
     _setsController = TextEditingController();
     _repsController = TextEditingController();
     _weightController = TextEditingController();
+    _durationController = TextEditingController();
     _syncControllersFromEntry();
   }
 
@@ -68,6 +73,9 @@ class _RecommendedExerciseTileState extends State<RecommendedExerciseTile> {
     _repsController.text = (e == null || e.reps == 0) ? '' : e.reps.toString();
     _weightController.text =
         (e == null || e.weight == 0.0) ? '' : _formatWeight(e.weight);
+    _durationController.text = (e == null || e.durationMinutes == 0)
+        ? ''
+        : e.durationMinutes.toString();
   }
 
   String _formatWeight(double w) {
@@ -80,10 +88,32 @@ class _RecommendedExerciseTileState extends State<RecommendedExerciseTile> {
     _setsController.dispose();
     _repsController.dispose();
     _weightController.dispose();
+    _durationController.dispose();
     super.dispose();
   }
 
   void _handleMarkDone() {
+    if (_isDurationExercise(widget.exercise)) {
+      final duration = int.tryParse(_durationController.text.trim()) ?? 0;
+      if (duration <= 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(AppLocalizations.of(context).fillDurationMinutes),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+      widget.onMarkDone(ExerciseDraftEntry(
+        exerciseId: widget.exercise.exerciseId,
+        sets: 0,
+        reps: 0,
+        weight: 0,
+        durationMinutes: duration,
+      ));
+      return;
+    }
+
     final sets = int.tryParse(_setsController.text.trim()) ?? 0;
     final reps = int.tryParse(_repsController.text.trim()) ?? 0;
     final weight = double.tryParse(_weightController.text.trim()) ?? 0.0;
@@ -233,6 +263,10 @@ class _RecommendedExerciseTileState extends State<RecommendedExerciseTile> {
   }
 
   String _summary(ExerciseDraftEntry e) {
+    if (_isDurationExercise(widget.exercise)) {
+      final minLabel = AppLocalizations.of(context).minutesShort;
+      return '${e.durationMinutes} $minLabel';
+    }
     final weight =
         e.weight > 0 ? ' @ ${_formatWeight(e.weight)}kg' : '';
     return '${e.sets} × ${e.reps}$weight';
@@ -263,17 +297,20 @@ class _RecommendedExerciseTileState extends State<RecommendedExerciseTile> {
             thumbnailUrl: widget.exercise.thumbnailUrl,
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(child: _numberField(_setsController, l10n.sets)),
-              const SizedBox(width: 8),
-              Expanded(child: _numberField(_repsController, l10n.reps)),
-              const SizedBox(width: 8),
-              Expanded(
-                  child: _numberField(_weightController, l10n.weightKg,
-                      allowDecimal: true)),
-            ],
-          ),
+          if (_isDurationExercise(widget.exercise))
+            _numberField(_durationController, l10n.durationMinutes)
+          else
+            Row(
+              children: [
+                Expanded(child: _numberField(_setsController, l10n.sets)),
+                const SizedBox(width: 8),
+                Expanded(child: _numberField(_repsController, l10n.reps)),
+                const SizedBox(width: 8),
+                Expanded(
+                    child: _numberField(_weightController, l10n.weightKg,
+                        allowDecimal: true)),
+              ],
+            ),
           const SizedBox(height: 12),
           Row(
             children: [

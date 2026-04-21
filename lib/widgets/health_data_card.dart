@@ -91,6 +91,16 @@ class _HealthDataCardState extends State<HealthDataCard>
     }
   }
 
+  /// iOS caches permissions per-HealthKit type; if a new type was added to
+  /// the requested set after a user already authorized, iOS won't re-prompt
+  /// automatically. Tapping this forces a fresh request so the new type
+  /// (e.g. Walking + Running Distance) gets prompted.
+  Future<void> _reRequestPermissions() async {
+    _waitingForPermission = true;
+    await _healthService.requestAuthorization();
+    if (mounted) _loadHealthData();
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -156,9 +166,25 @@ class _HealthDataCardState extends State<HealthDataCard>
                   l10n.todaysActivity,
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
-                IconButton(
-                  icon: const Icon(Icons.refresh),
-                  onPressed: _loadHealthData,
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.refresh),
+                      onPressed: _loadHealthData,
+                    ),
+                    PopupMenuButton<String>(
+                      icon: const Icon(Icons.more_vert),
+                      onSelected: (v) {
+                        if (v == 'reauth') _reRequestPermissions();
+                      },
+                      itemBuilder: (context) => [
+                        PopupMenuItem(
+                          value: 'reauth',
+                          child: Text(l10n.reRequestPermissions),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ],
             ),

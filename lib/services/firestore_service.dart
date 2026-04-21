@@ -54,6 +54,19 @@ class FirestoreService {
         );
   }
 
+  /// Exercises filtered by phase type. Used by the warm-up and cool-down
+  /// sections on the home screen. Falls back to client-side filtering so
+  /// existing docs without a `type` field (treated as main) still work.
+  Future<List<ExerciseModel>> getExercisesByType(ExerciseType type) async {
+    try {
+      final all = await getAllExercises();
+      return all.where((e) => e.type == type).toList();
+    } catch (e) {
+      print('Error getting exercises by type: $e');
+      return [];
+    }
+  }
+
   Future<ExerciseModel?> getExercise(String exerciseId) async {
     try {
       DocumentSnapshot doc =

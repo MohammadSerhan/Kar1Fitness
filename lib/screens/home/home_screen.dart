@@ -49,9 +49,12 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _workoutStreamUid;
   DateTime? _workoutStreamDate;
 
-  // Ticked recommended exercises for the current date, with the sets / reps /
-  // weight entered in the inline form. Loaded from SharedPreferences.
+  // Ticked exercises for the current date, keyed by exerciseId, per phase.
+  // `_draftEntries` is the main workout; `_warmupDraft` / `_cooldownDraft`
+  // are the warm-up and optional cool-down. Loaded from SharedPreferences.
   Map<String, ExerciseDraftEntry> _draftEntries = {};
+  Map<String, ExerciseDraftEntry> _warmupDraft = {};
+  Map<String, ExerciseDraftEntry> _cooldownDraft = {};
   DateTime? _draftStartedAt;
 
   // At most one recommended tile is expanded at a time; its exerciseId lives
@@ -65,8 +68,20 @@ class _HomeScreenState extends State<HomeScreen> {
   // were added but never marked done are lost on kill (intentional).
   final List<ExerciseModel> _customExercises = [];
 
+  // Warm-up and cool-down exercise catalogs from Firestore. Memoized — these
+  // are small lists and don't change between reloads of this screen.
+  Future<List<ExerciseModel>>? _warmupLibraryFuture;
+  Future<List<ExerciseModel>>? _cooldownLibraryFuture;
+
   bool _isSavingWorkout = false;
   bool _isPickingExercise = false;
+
+  // Warm-up and cool-down sections collapse by default to keep the home
+  // screen short. The main recommended focus starts expanded — it's the
+  // primary action — but users can collapse it too. Tapping the header toggles.
+  bool _warmupCardExpanded = false;
+  bool _cooldownCardExpanded = false;
+  bool _mainCardExpanded = true;
 
   @override
   void initState() {
@@ -76,11 +91,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadDraft() async {
     final date = _selectedDate;
-    final entries = await _draftService.getEntries(date);
+    final main =
+        await _draftService.getEntries(date, WorkoutPhase.main);
+    final warmup =
+        await _draftService.getEntries(date, WorkoutPhase.warmup);
+    final cooldown =
+        await _draftService.getEntries(date, WorkoutPhase.cooldown);
     final startedAt = await _draftService.getStartedAt(date);
     if (!mounted || !_isSameDay(_selectedDate, date)) return;
     setState(() {
-      _draftEntries = entries;
+      _draftEntries = main;
+      _warmupDraft = warmup;
+      _cooldownDraft = cooldown;
       _draftStartedAt = startedAt;
       _customExercises.clear();
     });
@@ -142,9 +164,12 @@ class _HomeScreenState extends State<HomeScreen> {
               .map((e) => e.exerciseId)
               .toSet();
       final customIds = _customExercises.map((e) => e.exerciseId).toSet();
-      // Don't offer exercises that are already on-screen.
+      // Don't offer exercises that are already on-screen, and limit the main
+      // picker to main exercises only — warm-ups / cool-downs live in their
+      // own sections.
       final candidates = exercises
           .where((e) =>
+              e.type == ExerciseType.main &&
               !recommendedIds.contains(e.exerciseId) &&
               !customIds.contains(e.exerciseId))
           .toList();
@@ -179,6 +204,18 @@ class _HomeScreenState extends State<HomeScreen> {
       }).catchError((_) {});
     }
     return _planFuture!;
+  }
+
+  Future<List<ExerciseModel>> _ensureWarmupLibrary() {
+    _warmupLibraryFuture ??=
+        _firestoreService.getExercisesByType(ExerciseType.warmup);
+    return _warmupLibraryFuture!;
+  }
+
+  Future<List<ExerciseModel>> _ensureCooldownLibrary() {
+    _cooldownLibraryFuture ??=
+        _firestoreService.getExercisesByType(ExerciseType.cooldown);
+    return _cooldownLibraryFuture!;
   }
 
   /// Caches the user stream so rebuilds don't resubscribe. StreamBuilder
@@ -220,28 +257,61 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _expandedExerciseId = null);
   }
 
-  Future<void> _handleMarkDone(ExerciseDraftEntry entry) async {
-    final next = Map<String, ExerciseDraftEntry>.from(_draftEntries);
-    next[entry.exerciseId] = entry;
-    setState(() {
-      _draftEntries = next;
-      _expandedExerciseId = null;
-    });
-    await _draftService.setEntries(_selectedDate, next);
+  Map<String, ExerciseDraftEntry> _draftForPhase(WorkoutPhase phase) {
+    switch (phase) {
+      case WorkoutPhase.warmup:
+        return _warmupDraft;
+      case WorkoutPhase.cooldown:
+        return _cooldownDraft;
+      case WorkoutPhase.main:
+        return _draftEntries;
+    }
   }
 
-  Future<void> _handleRemoveEntry(String exerciseId) async {
-    final next = Map<String, ExerciseDraftEntry>.from(_draftEntries);
+  void _assignDraftForPhase(
+      WorkoutPhase phase, Map<String, ExerciseDraftEntry> next) {
+    switch (phase) {
+      case WorkoutPhase.warmup:
+        _warmupDraft = next;
+        break;
+      case WorkoutPhase.cooldown:
+        _cooldownDraft = next;
+        break;
+      case WorkoutPhase.main:
+        _draftEntries = next;
+        break;
+    }
+  }
+
+  Future<void> _handleMarkDone(
+      WorkoutPhase phase, ExerciseDraftEntry entry) async {
+    final next =
+        Map<String, ExerciseDraftEntry>.from(_draftForPhase(phase));
+    next[entry.exerciseId] = entry;
+    setState(() {
+      _assignDraftForPhase(phase, next);
+      _expandedExerciseId = null;
+    });
+    await _draftService.setEntries(_selectedDate, phase, next);
+  }
+
+  Future<void> _handleRemoveEntry(
+      WorkoutPhase phase, String exerciseId) async {
+    final next =
+        Map<String, ExerciseDraftEntry>.from(_draftForPhase(phase));
     next.remove(exerciseId);
     setState(() {
-      _draftEntries = next;
+      _assignDraftForPhase(phase, next);
       _expandedExerciseId = null;
-      // If it was a custom-added exercise, remove the tile too — otherwise
-      // the card would hang around empty.
-      _customExercises
-          .removeWhere((e) => e.exerciseId == exerciseId);
+      // If it was a custom-added main exercise, remove the tile too —
+      // otherwise the card would hang around empty. Warm-up / cool-down
+      // don't support customs, so skip.
+      if (phase == WorkoutPhase.main) {
+        _customExercises
+            .removeWhere((e) => e.exerciseId == exerciseId);
+      }
     });
-    await _draftService.setEntries(_selectedDate, next);
+    await _draftService.setEntries(_selectedDate, phase, next);
   }
 
   Future<void> _saveWorkoutFromDraft() async {
@@ -250,25 +320,37 @@ class _HomeScreenState extends State<HomeScreen> {
     if (userId == null || userId.isEmpty) return;
     if (_draftEntries.isEmpty || _isSavingWorkout) return;
 
+    // Soft enforcement: nudge, don't block. If the user somehow logged main
+    // exercises without any warm-up, ask to confirm — they can still finish.
+    if (_warmupDraft.isEmpty) {
+      final proceed = await _confirmSkipWarmup();
+      if (proceed != true) return;
+    }
+
     setState(() => _isSavingWorkout = true);
 
     final startedAt = _draftStartedAt ?? DateTime.now();
     final durationMinutes =
         DateTime.now().difference(startedAt).inMinutes.clamp(0, 24 * 60);
 
+    ExerciseCompleted toCompleted(ExerciseDraftEntry e) => ExerciseCompleted(
+          exerciseId: e.exerciseId,
+          sets: e.sets,
+          reps: e.reps,
+          weight: e.weight,
+          durationMinutes: e.durationMinutes,
+        );
+
     final workout = WorkoutModel(
       workoutId: '',
       userId: userId,
       date: _selectedDate,
       durationMinutes: durationMinutes,
-      exercisesCompleted: _draftEntries.values
-          .map((e) => ExerciseCompleted(
-                exerciseId: e.exerciseId,
-                sets: e.sets,
-                reps: e.reps,
-                weight: e.weight,
-              ))
-          .toList(),
+      exercisesCompleted:
+          _draftEntries.values.map(toCompleted).toList(),
+      warmupCompleted: _warmupDraft.values.map(toCompleted).toList(),
+      cooldownCompleted:
+          _cooldownDraft.values.map(toCompleted).toList(),
     );
 
     try {
@@ -279,6 +361,8 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       setState(() {
         _draftEntries = {};
+        _warmupDraft = {};
+        _cooldownDraft = {};
         _draftStartedAt = null;
         _expandedExerciseId = null;
         _isSavingWorkout = false;
@@ -300,6 +384,31 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       );
     }
+  }
+
+  Future<bool?> _confirmSkipWarmup() {
+    final l10n = AppLocalizations.of(context);
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.noWarmupTitle),
+        content: Text(l10n.noWarmupMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(l10n.cancel),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryYellow,
+              foregroundColor: AppTheme.darkBackground,
+            ),
+            child: Text(l10n.continueAnyway),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _pushRecording(List<ExerciseModel>? preloaded) async {
@@ -403,22 +512,36 @@ class _HomeScreenState extends State<HomeScreen> {
         _selectedDate.day == now.day;
   }
 
+  bool get _hasAnyDraftActivity =>
+      _draftEntries.isNotEmpty ||
+      _warmupDraft.isNotEmpty ||
+      _cooldownDraft.isNotEmpty ||
+      _customExercises.isNotEmpty;
+
   /// Builds different content depending on whether today or a past date is selected.
   List<Widget> _buildContentForDate(String userId) {
     if (_isToday) {
       return [
-        // 1. Recommended Focus
+        // 1. Warm-up (required, soft-gated — user can still skip at save)
+        _buildPhaseSection(userId, WorkoutPhase.warmup),
+        const SizedBox(height: 20),
+
+        // 2. Recommended Focus (main workout)
         _buildRecommendedFocus(userId),
         const SizedBox(height: 20),
 
-        // 2. Today's Activity (Health Data)
+        // 3. Cool-down (optional)
+        _buildPhaseSection(userId, WorkoutPhase.cooldown),
+        const SizedBox(height: 20),
+
+        // 4. Today's Activity (Health Data)
         const HealthDataCard(),
         const SizedBox(height: 20),
 
         // Show today's completed workout if one exists
         _buildTodayWorkoutIfExists(userId),
 
-        // 3. Log Workout
+        // 5. Log Workout
         _buildLogWorkoutButton(userId),
       ];
     }
@@ -443,7 +566,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return StreamBuilder<WorkoutModel?>(
       stream: _ensureWorkoutStream(userId, _selectedDate),
       builder: (context, snapshot) {
-        if (_draftEntries.isNotEmpty) return const SizedBox.shrink();
+        if (_hasAnyDraftActivity) return const SizedBox.shrink();
         final workout = snapshot.data;
         if (workout == null) return const SizedBox.shrink();
 
@@ -660,14 +783,192 @@ class _HomeScreenState extends State<HomeScreen> {
         stream: _ensureWorkoutStream(userId, _selectedDate),
         builder: (context, snapshot) {
           final hasWorkout = snapshot.data != null;
-          final hasDraft =
-              _draftEntries.isNotEmpty || _customExercises.isNotEmpty;
-          if (hasWorkout && !hasDraft) return const SizedBox.shrink();
+          if (hasWorkout && !_hasAnyDraftActivity) {
+            return const SizedBox.shrink();
+          }
           return _buildRecommendedFocusCard(userId);
         },
       );
     }
     return _buildRecommendedFocusCard(userId);
+  }
+
+  /// Warm-up or cool-down card. Only rendered for today. Same visibility rule
+  /// as the main recommended card: hide once a workout exists for the day and
+  /// there's no active draft.
+  Widget _buildPhaseSection(String userId, WorkoutPhase phase) {
+    assert(phase != WorkoutPhase.main);
+    return StreamBuilder<WorkoutModel?>(
+      stream: _ensureWorkoutStream(userId, _selectedDate),
+      builder: (context, snapshot) {
+        final hasWorkout = snapshot.data != null;
+        if (hasWorkout && !_hasAnyDraftActivity) {
+          return const SizedBox.shrink();
+        }
+        return _buildPhaseSectionCard(phase);
+      },
+    );
+  }
+
+  Widget _buildPhaseSectionCard(WorkoutPhase phase) {
+    final libraryFuture = phase == WorkoutPhase.warmup
+        ? _ensureWarmupLibrary()
+        : _ensureCooldownLibrary();
+    return FutureBuilder<List<ExerciseModel>>(
+      future: libraryFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Card(
+            child: Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          );
+        }
+        final library = snapshot.data ?? const <ExerciseModel>[];
+        return _buildPhaseCardBody(phase, library);
+      },
+    );
+  }
+
+  Widget _buildPhaseCardBody(
+      WorkoutPhase phase, List<ExerciseModel> library) {
+    final l10n = AppLocalizations.of(context);
+    final isWarmup = phase == WorkoutPhase.warmup;
+    final title = isWarmup ? l10n.warmup : l10n.cooldown;
+    final notice = isWarmup ? l10n.warmupNotice : l10n.cooldownNotice;
+    final badge = isWarmup ? l10n.required : l10n.optional;
+    final icon = isWarmup ? Icons.whatshot : Icons.self_improvement;
+    final badgeColor =
+        isWarmup ? AppTheme.primaryYellow : AppTheme.lightGrey;
+    final draft = _draftForPhase(phase);
+    final expanded =
+        isWarmup ? _warmupCardExpanded : _cooldownCardExpanded;
+    final doneCount = draft.length;
+
+    return Card(
+      color: AppTheme.cardBackground,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            onTap: () => setState(() {
+              if (isWarmup) {
+                _warmupCardExpanded = !_warmupCardExpanded;
+              } else {
+                _cooldownCardExpanded = !_cooldownCardExpanded;
+              }
+            }),
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                children: [
+                  Icon(icon, color: AppTheme.primaryYellow),
+                  const SizedBox(width: 8),
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: badgeColor.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: badgeColor),
+                    ),
+                    child: Text(
+                      badge,
+                      style:
+                          Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: badgeColor,
+                                fontWeight: FontWeight.bold,
+                              ),
+                    ),
+                  ),
+                  const Spacer(),
+                  if (doneCount > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: Text(
+                        '$doneCount ✓',
+                        style:
+                            Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: AppTheme.primaryYellow,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                      ),
+                    ),
+                  Icon(
+                    expanded ? Icons.expand_less : Icons.expand_more,
+                    color: AppTheme.mediumGrey,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (expanded)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.darkGrey,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.info_outline,
+                            color: AppTheme.mediumGrey, size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            notice,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ...library.map((exercise) => RecommendedExerciseTile(
+                        key: ValueKey(
+                            '${_phaseKeyPrefix(phase)}-lib-${exercise.exerciseId}'),
+                        exercise: exercise,
+                        entry: draft[exercise.exerciseId],
+                        expanded:
+                            _expandedExerciseId == exercise.exerciseId,
+                        onRequestExpand: () =>
+                            _handleRequestExpand(exercise.exerciseId),
+                        onRequestCollapse: _handleRequestCollapse,
+                        onMarkDone: (entry) =>
+                            _handleMarkDone(phase, entry),
+                        onRemove: () => _handleRemoveEntry(
+                            phase, exercise.exerciseId),
+                      )),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _phaseKeyPrefix(WorkoutPhase phase) {
+    switch (phase) {
+      case WorkoutPhase.warmup:
+        return 'warmup';
+      case WorkoutPhase.cooldown:
+        return 'cooldown';
+      case WorkoutPhase.main:
+        return 'main';
+    }
   }
 
   Widget _buildRecommendedFocusCard(String userId) {
@@ -695,142 +996,197 @@ class _HomeScreenState extends State<HomeScreen> {
           return const SizedBox.shrink();
         }
 
+        final doneCount = _isToday ? _draftEntries.length : 0;
+        final l10n = AppLocalizations.of(context);
+
         return Card(
           color: AppTheme.cardBackground,
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.lightbulb_outline,
-                        color: AppTheme.primaryYellow),
-                    const SizedBox(width: 8),
-                    Text(
-                      AppLocalizations.of(context).recommendedFocus,
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryYellow.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTheme.primaryYellow),
-                  ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              InkWell(
+                onTap: () => setState(
+                    () => _mainCardExpanded = !_mainCardExpanded),
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
                   child: Row(
                     children: [
-                      const Icon(Icons.fitness_center,
+                      const Icon(Icons.lightbulb_outline,
                           color: AppTheme.primaryYellow),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 8),
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              AppLocalizations.of(context)
-                                  .translateMuscleGroup(targetMuscleGroup),
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
-                                  ?.copyWith(
-                                    color: AppTheme.primaryYellow,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                            ),
-                            Text(
-                              AppLocalizations.of(context)
-                                  .basedOnRecentWorkouts,
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          ],
+                        child: Text(
+                          l10n.recommendedFocus,
+                          style: Theme.of(context).textTheme.titleLarge,
                         ),
+                      ),
+                      if (doneCount > 0)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: Text(
+                            '$doneCount ✓',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(
+                                  color: AppTheme.primaryYellow,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                        ),
+                      Icon(
+                        _mainCardExpanded
+                            ? Icons.expand_less
+                            : Icons.expand_more,
+                        color: AppTheme.mediumGrey,
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
-                if (_isToday)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Text(
-                      AppLocalizations.of(context).markExercisesHint,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ),
-                // Today: inline expandable tiles that capture sets/reps/weight
-                // with a playable video. Past dates: plain link cards.
-                ...exercises.map((exercise) => _isToday
-                    ? RecommendedExerciseTile(
-                        key: ValueKey('rec-${exercise.exerciseId}'),
-                        exercise: exercise,
-                        entry: _draftEntries[exercise.exerciseId],
-                        expanded:
-                            _expandedExerciseId == exercise.exerciseId,
-                        onRequestExpand: () =>
-                            _handleRequestExpand(exercise.exerciseId),
-                        onRequestCollapse: _handleRequestCollapse,
-                        onMarkDone: _handleMarkDone,
-                        onRemove: () =>
-                            _handleRemoveEntry(exercise.exerciseId),
-                      )
-                    : Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: ExerciseCard(
-                          exercise: exercise,
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    ExerciseDetailScreen(exercise: exercise),
-                              ),
-                            );
-                          },
+              ),
+              if (_mainCardExpanded)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color:
+                              AppTheme.primaryYellow.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border:
+                              Border.all(color: AppTheme.primaryYellow),
                         ),
-                      )),
-                // Custom exercises the user added on top of the recommended
-                // plan — same tile widget, keyed separately so Flutter
-                // doesn't confuse them with reordered recommended items.
-                if (_isToday)
-                  ..._customExercises.map((exercise) =>
-                      RecommendedExerciseTile(
-                        key: ValueKey('custom-${exercise.exerciseId}'),
-                        exercise: exercise,
-                        entry: _draftEntries[exercise.exerciseId],
-                        expanded:
-                            _expandedExerciseId == exercise.exerciseId,
-                        onRequestExpand: () =>
-                            _handleRequestExpand(exercise.exerciseId),
-                        onRequestCollapse: _handleRequestCollapse,
-                        onMarkDone: _handleMarkDone,
-                        onRemove: () =>
-                            _handleRemoveEntry(exercise.exerciseId),
-                      )),
-                if (_isToday) ...[
-                  const SizedBox(height: 4),
-                  OutlinedButton.icon(
-                    onPressed:
-                        _isPickingExercise ? null : _addCustomExercise,
-                    icon: _isPickingExercise
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.add),
-                    label: Text(AppLocalizations.of(context).addExercise),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.primaryYellow,
-                      side: const BorderSide(color: AppTheme.primaryYellow),
-                      minimumSize: const Size.fromHeight(48),
-                    ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.fitness_center,
+                                color: AppTheme.primaryYellow),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    l10n.translateMuscleGroup(
+                                        targetMuscleGroup),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(
+                                          color: AppTheme.primaryYellow,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                  ),
+                                  Text(
+                                    l10n.basedOnRecentWorkouts,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      if (_isToday)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Text(
+                            l10n.markExercisesHint,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ),
+                      // Today: inline expandable tiles capture sets/reps/weight
+                      // with a playable video. Past dates: plain link cards.
+                      ...exercises.map((exercise) => _isToday
+                          ? RecommendedExerciseTile(
+                              key:
+                                  ValueKey('rec-${exercise.exerciseId}'),
+                              exercise: exercise,
+                              entry: _draftEntries[exercise.exerciseId],
+                              expanded: _expandedExerciseId ==
+                                  exercise.exerciseId,
+                              onRequestExpand: () =>
+                                  _handleRequestExpand(
+                                      exercise.exerciseId),
+                              onRequestCollapse: _handleRequestCollapse,
+                              onMarkDone: (entry) => _handleMarkDone(
+                                  WorkoutPhase.main, entry),
+                              onRemove: () => _handleRemoveEntry(
+                                  WorkoutPhase.main,
+                                  exercise.exerciseId),
+                            )
+                          : Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: ExerciseCard(
+                                exercise: exercise,
+                                onTap: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          ExerciseDetailScreen(
+                                              exercise: exercise),
+                                    ),
+                                  );
+                                },
+                              ),
+                            )),
+                      // Custom exercises the user added on top of the
+                      // recommended plan — same tile widget, keyed
+                      // separately so Flutter doesn't confuse them with
+                      // reordered recommended items.
+                      if (_isToday)
+                        ..._customExercises.map((exercise) =>
+                            RecommendedExerciseTile(
+                              key: ValueKey(
+                                  'custom-${exercise.exerciseId}'),
+                              exercise: exercise,
+                              entry: _draftEntries[exercise.exerciseId],
+                              expanded: _expandedExerciseId ==
+                                  exercise.exerciseId,
+                              onRequestExpand: () =>
+                                  _handleRequestExpand(
+                                      exercise.exerciseId),
+                              onRequestCollapse: _handleRequestCollapse,
+                              onMarkDone: (entry) => _handleMarkDone(
+                                  WorkoutPhase.main, entry),
+                              onRemove: () => _handleRemoveEntry(
+                                  WorkoutPhase.main,
+                                  exercise.exerciseId),
+                            )),
+                      if (_isToday) ...[
+                        const SizedBox(height: 4),
+                        OutlinedButton.icon(
+                          onPressed: _isPickingExercise
+                              ? null
+                              : _addCustomExercise,
+                          icon: _isPickingExercise
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2),
+                                )
+                              : const Icon(Icons.add),
+                          label: Text(l10n.addExercise),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.primaryYellow,
+                            side: const BorderSide(
+                                color: AppTheme.primaryYellow),
+                            minimumSize: const Size.fromHeight(48),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
-                ],
-              ],
-            ),
+                ),
+            ],
           ),
         );
       },
@@ -844,9 +1200,9 @@ class _HomeScreenState extends State<HomeScreen> {
       stream: _ensureWorkoutStream(userId, _selectedDate),
       builder: (context, workoutSnap) {
         final hasWorkout = workoutSnap.data != null;
-        final hasDraft =
-            _draftEntries.isNotEmpty || _customExercises.isNotEmpty;
-        if (hasWorkout && !hasDraft) return const SizedBox.shrink();
+        if (hasWorkout && !_hasAnyDraftActivity) {
+          return const SizedBox.shrink();
+        }
         return _buildLogWorkoutButtonInner(userId);
       },
     );
@@ -1022,6 +1378,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildWorkoutCard(WorkoutModel workout) {
+    final l10n = AppLocalizations.of(context);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -1033,16 +1390,17 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.check_circle, color: AppTheme.primaryYellow),
+                    const Icon(Icons.check_circle,
+                        color: AppTheme.primaryYellow),
                     const SizedBox(width: 8),
                     Text(
-                      AppLocalizations.of(context).workoutCompleted,
+                      l10n.workoutCompleted,
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                   ],
                 ),
                 Text(
-                  '${workout.durationMinutes} ${AppLocalizations.of(context).minutesShort}',
+                  '${workout.durationMinutes} ${l10n.minutesShort}',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         color: AppTheme.primaryYellow,
                       ),
@@ -1050,15 +1408,45 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
             const SizedBox(height: 16),
+            if (workout.warmupCompleted.isNotEmpty) ...[
+              _buildPhaseHeader(l10n.warmup, Icons.whatshot),
+              ...workout.warmupCompleted
+                  .map((e) => _buildExerciseCompletedItem(e)),
+              const SizedBox(height: 12),
+            ],
             Text(
-              '${workout.exercisesCompleted.length} ${AppLocalizations.of(context).exercisesCompleted}',
+              '${workout.exercisesCompleted.length} ${l10n.exercisesCompleted}',
               style: Theme.of(context).textTheme.bodyLarge,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             ...workout.exercisesCompleted
                 .map((exercise) => _buildExerciseCompletedItem(exercise)),
+            if (workout.cooldownCompleted.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              _buildPhaseHeader(l10n.cooldown, Icons.self_improvement),
+              ...workout.cooldownCompleted
+                  .map((e) => _buildExerciseCompletedItem(e)),
+            ],
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildPhaseHeader(String title, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Icon(icon, color: AppTheme.primaryYellow, size: 18),
+          const SizedBox(width: 6),
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: AppTheme.primaryYellow,
+                ),
+          ),
+        ],
       ),
     );
   }
@@ -1068,6 +1456,11 @@ class _HomeScreenState extends State<HomeScreen> {
       future: _firestoreService.getExercise(exercise.exerciseId),
       builder: (context, snapshot) {
         final exerciseName = snapshot.data?.name ?? 'Exercise';
+        final l10n = AppLocalizations.of(context);
+        // Cardio warm-ups / cool-downs log a duration; the rest log sets × reps @ weight.
+        final trailing = exercise.durationMinutes > 0
+            ? '${exercise.durationMinutes} ${l10n.minutesShort}'
+            : '${exercise.sets} x ${exercise.reps} @ ${exercise.weight}kg';
 
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -1083,7 +1476,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               Text(
-                '${exercise.sets} x ${exercise.reps} @ ${exercise.weight}kg',
+                trailing,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: AppTheme.lightGrey,
                     ),

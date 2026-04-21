@@ -61,11 +61,14 @@ class WorkoutRecommendationService {
         }
       }
 
-      // Get exercises for the least trained muscle group
+      // Get exercises for the least trained muscle group. Warm-ups /
+      // cool-downs live in the same collection but must never show up as
+      // main recommendations — filter on type.
       List<ExerciseModel> allExercises =
           await _firestoreService.getAllExercises();
       List<ExerciseModel> recommendedExercises = allExercises
           .where((exercise) =>
+              exercise.type == ExerciseType.main &&
               exercise.muscleGroups.contains(leastTrainedMuscleGroup))
           .take(5)
           .toList();
@@ -86,8 +89,11 @@ class WorkoutRecommendationService {
     List<ExerciseModel> allExercises =
         await _firestoreService.getAllExercises();
 
-    // Get a balanced mix of exercises
-    List<ExerciseModel> recommendedExercises = allExercises.take(5).toList();
+    // Get a balanced mix of main exercises — skip warm-ups / cool-downs.
+    List<ExerciseModel> recommendedExercises = allExercises
+        .where((e) => e.type == ExerciseType.main)
+        .take(5)
+        .toList();
 
     return {
       'targetMuscleGroup': 'Full Body',
@@ -111,7 +117,9 @@ class WorkoutRecommendationService {
 
     for (String muscleGroup in muscleGroups) {
       List<ExerciseModel> exercises = allExercises
-          .where((exercise) => exercise.muscleGroups.contains(muscleGroup))
+          .where((exercise) =>
+              exercise.type == ExerciseType.main &&
+              exercise.muscleGroups.contains(muscleGroup))
           .take(4)
           .toList();
       weeklyPlan[muscleGroup] = exercises;
