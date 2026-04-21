@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    width: 1024px;
+    height: 500px;
+    background: linear-gradient(135deg, #1A1A1A 0%, #2D2D2D 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    overflow: hidden;
+    position: relative;
+}
+.container {
+    text-align: center;
+    z-index: 2;
+}
+.logo {
+    width: 120px;
+    height: 120px;
+    margin-bottom: 24px;
+}
+h1 {
+    color: #FDD835;
+    font-size: 64px;
+    font-weight: 900;
+    letter-spacing: 4px;
+    margin-bottom: 12px;
+}
+p {
+    color: #FFFFFF;
+    font-size: 24px;
+    font-weight: 300;
+    letter-spacing: 2px;
+}
+.accent-line {
+    width: 80px;
+    height: 4px;
+    background: #FDD835;
+    margin: 20px auto;
+    border-radius: 2px;
+}
+/* Decorative gym elements */
+.bg-circle {
+    position: absolute;
+    border-radius: 50%;
+    border: 2px solid rgba(253, 216, 53, 0.1);
+}
+.bg-circle:nth-child(1) { width: 300px; height: 300px; top: -100px; right: -50px; }
+.bg-circle:nth-child(2) { width: 200px; height: 200px; bottom: -60px; left: -40px; }
+.bg-circle:nth-child(3) { width: 150px; height: 150px; top: 50px; left: 80px; border-color: rgba(253, 216, 53, 0.05); }
+</style>
+</head>
+<body>
+    <div class="bg-circle"></div>
+    <div class="bg-circle"></div>
+    <div class="bg-circle"></div>
+    <div class="container">
+        <img src="assets/images/logo.png" alt="KAR1" class="logo">
+        <h1>KAR1 FITNESS</h1>
+        <div class="accent-line"></div>
+        <p>Train Smarter. Stay Consistent.</p>
+    </div>
+</body>
+</html>

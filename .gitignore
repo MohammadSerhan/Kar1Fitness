@@ -61,6 +61,9 @@ android/key.properties
 *.jks
 *.keystore
 
+# Local notes / credentials (DO NOT COMMIT)
+Kar1App Details.txt
+
 # Local Gradle cache
 .gradle/
 .gradle-cache/
