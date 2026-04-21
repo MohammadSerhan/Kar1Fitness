@@ -7,10 +7,19 @@ class ExerciseCard extends StatelessWidget {
   final ExerciseModel exercise;
   final VoidCallback onTap;
 
+  /// When non-null, shows a circular check toggle in the trailing slot
+  /// (replacing the navigation arrow). `true` = completed.
+  final bool? isCompleted;
+
+  /// Called when the check toggle is tapped. Required if [isCompleted] is set.
+  final VoidCallback? onToggleCompleted;
+
   const ExerciseCard({
     super.key,
     required this.exercise,
     required this.onTap,
+    this.isCompleted,
+    this.onToggleCompleted,
   });
 
   @override
@@ -108,12 +117,27 @@ class ExerciseCard extends StatelessWidget {
                 ),
               ),
 
-              // Arrow Icon
-              const Icon(
-                Icons.arrow_forward_ios,
-                color: AppTheme.mediumGrey,
-                size: 16,
-              ),
+              // Trailing: check toggle (if checkable) or navigation arrow
+              if (isCompleted != null)
+                IconButton(
+                  onPressed: onToggleCompleted,
+                  tooltip: isCompleted! ? 'Mark as not done' : 'Mark as done',
+                  icon: Icon(
+                    isCompleted!
+                        ? Icons.check_circle
+                        : Icons.radio_button_unchecked,
+                    color: isCompleted!
+                        ? AppTheme.primaryYellow
+                        : AppTheme.mediumGrey,
+                    size: 28,
+                  ),
+                )
+              else
+                const Icon(
+                  Icons.arrow_forward_ios,
+                  color: AppTheme.mediumGrey,
+                  size: 16,
+                ),
             ],
           ),
         ),

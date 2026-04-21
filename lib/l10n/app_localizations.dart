@@ -107,6 +107,11 @@ class AppLocalizations {
   String get workoutCompleted => t('workoutCompleted');
   String get exercisesCompleted => t('exercisesCompleted');
   String get minutesShort => t('minutesShort');
+  String get finishWorkout => t('finishWorkout');
+  String get markExercisesHint => t('markExercisesHint');
+  String get useMarkedExercises => t('useMarkedExercises');
+  String get markDone => t('markDone');
+  String get remove => t('remove');
 
   // Health data
   String get healthData => t('healthData');
@@ -248,6 +253,12 @@ class AppLocalizations {
       'workoutCompleted': 'Workout Completed',
       'exercisesCompleted': 'exercises completed',
       'minutesShort': 'min',
+      'finishWorkout': 'Finish Workout',
+      'markExercisesHint':
+          'Tap a card to watch the video, enter sets & reps, and mark it done',
+      'useMarkedExercises': 'Use Marked Exercises',
+      'markDone': 'Mark Done',
+      'remove': 'Remove',
 
       'healthData': 'Health Data',
       'connectWearable':
@@ -362,6 +373,12 @@ class AppLocalizations {
       'workoutCompleted': 'האימון הושלם',
       'exercisesCompleted': 'תרגילים הושלמו',
       'minutesShort': 'דק\'',
+      'finishWorkout': 'סיום אימון',
+      'markExercisesHint':
+          'הקש על כרטיס כדי לצפות בסרטון, להזין סטים וחזרות ולסמן כהושלם',
+      'useMarkedExercises': 'השתמש בתרגילים שסומנו',
+      'markDone': 'סמן כהושלם',
+      'remove': 'הסר',
 
       'healthData': 'נתוני בריאות',
       'connectWearable':
@@ -476,6 +493,12 @@ class AppLocalizations {
       'workoutCompleted': 'اكتمل التمرين',
       'exercisesCompleted': 'تمارين مكتملة',
       'minutesShort': 'دقيقة',
+      'finishWorkout': 'إنهاء التمرين',
+      'markExercisesHint':
+          'اضغط على البطاقة لمشاهدة الفيديو وإدخال المجموعات والتكرارات ووضع علامة منتهي',
+      'useMarkedExercises': 'استخدم التمارين المحددة',
+      'markDone': 'وضع علامة منتهي',
+      'remove': 'إزالة',
 
       'healthData': 'البيانات الصحية',
       'connectWearable':

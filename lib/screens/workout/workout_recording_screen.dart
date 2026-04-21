@@ -5,8 +5,10 @@ import '../../models/exercise_model.dart';
 import '../../models/workout_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
+import '../../services/workout_draft_service.dart';
 import '../../theme/app_theme.dart';
 import '../../l10n/app_localizations.dart';
+import '../../widgets/exercise_selection_dialog.dart';
 
 class WorkoutRecordingScreen extends StatefulWidget {
   final DateTime selectedDate;
@@ -24,6 +26,7 @@ class WorkoutRecordingScreen extends StatefulWidget {
 
 class _WorkoutRecordingScreenState extends State<WorkoutRecordingScreen> {
   final FirestoreService _firestoreService = FirestoreService();
+  final WorkoutDraftService _draftService = WorkoutDraftService();
   final List<ExerciseEntry> _exerciseEntries = [];
   DateTime? _workoutStartTime;
   bool _isRecording = false;
@@ -55,7 +58,7 @@ class _WorkoutRecordingScreenState extends State<WorkoutRecordingScreen> {
 
     final selectedExercise = await showDialog<ExerciseModel>(
       context: context,
-      builder: (context) => _ExerciseSelectionDialog(exercises: exercises),
+      builder: (context) => ExerciseSelectionDialog(exercises: exercises),
     );
 
     if (selectedExercise != null) {
@@ -113,7 +116,12 @@ class _WorkoutRecordingScreenState extends State<WorkoutRecordingScreen> {
             .toList(),
       );
 
+      // Replace any existing workout for this date, then add the new one
+      // and clear the local draft of ticked exercises.
+      await _firestoreService.deleteUserWorkoutsForDate(
+          userId, widget.selectedDate);
       await _firestoreService.addWorkout(workout);
+      await _draftService.clear(widget.selectedDate);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -436,84 +444,3 @@ class _ExerciseEntryCardState extends State<_ExerciseEntryCard> {
   }
 }
 
-class _ExerciseSelectionDialog extends StatefulWidget {
-  final List<ExerciseModel> exercises;
-
-  const _ExerciseSelectionDialog({required this.exercises});
-
-  @override
-  State<_ExerciseSelectionDialog> createState() =>
-      _ExerciseSelectionDialogState();
-}
-
-class _ExerciseSelectionDialogState extends State<_ExerciseSelectionDialog> {
-  String _searchQuery = '';
-
-  @override
-  Widget build(BuildContext context) {
-    final filteredExercises = widget.exercises
-        .where((exercise) =>
-            exercise.name.toLowerCase().contains(_searchQuery.toLowerCase()))
-        .toList();
-
-    return Dialog(
-      child: Container(
-        constraints: const BoxConstraints(maxHeight: 600),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                children: [
-                  Text(
-                    AppLocalizations.of(context).selectExercise,
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    decoration: InputDecoration(
-                      hintText: AppLocalizations.of(context).searchExercises,
-                      prefixIcon: const Icon(Icons.search),
-                      border: const OutlineInputBorder(),
-                    ),
-                    onChanged: (value) {
-                      setState(() {
-                        _searchQuery = value;
-                      });
-                    },
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            Expanded(
-              child: filteredExercises.isEmpty
-                  ? Center(
-                      child: Text(
-                        AppLocalizations.of(context).noExercisesFound,
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    )
-                  : ListView.builder(
-                      itemCount: filteredExercises.length,
-                      itemBuilder: (context, index) {
-                        final exercise = filteredExercises[index];
-                        return ListTile(
-                          title: Text(exercise.name),
-                          subtitle: Text(
-                            exercise.muscleGroups.join(', '),
-                            style: const TextStyle(color: AppTheme.lightGrey),
-                          ),
-                          onTap: () {
-                            Navigator.of(context).pop(exercise);
-                          },
-                        );
-                      },
-                    ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

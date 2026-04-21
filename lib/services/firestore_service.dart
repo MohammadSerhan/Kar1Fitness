@@ -89,6 +89,25 @@ class FirestoreService {
     await _firestore.collection('workouts').add(workout.toFirestore());
   }
 
+  /// Deletes any workouts this user has logged for the given calendar date.
+  /// Used when a new log supersedes an existing one for the same day.
+  Future<void> deleteUserWorkoutsForDate(
+      String userId, DateTime date) async {
+    final startOfDay = DateTime(date.year, date.month, date.day);
+    final endOfDay = DateTime(date.year, date.month, date.day, 23, 59, 59);
+
+    final querySnapshot = await _firestore
+        .collection('workouts')
+        .where('user_id', isEqualTo: userId)
+        .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+        .where('date', isLessThanOrEqualTo: Timestamp.fromDate(endOfDay))
+        .get();
+
+    for (final doc in querySnapshot.docs) {
+      await doc.reference.delete();
+    }
+  }
+
   Future<List<WorkoutModel>> getUserWorkouts(String userId,
       {int limit = 10}) async {
     try {

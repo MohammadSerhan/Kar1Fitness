@@ -1,17 +1,21 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:cached_video_player_plus/cached_video_player_plus.dart';
 import '../../models/user_model.dart';
 import '../../models/exercise_model.dart';
 import '../../models/workout_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../services/health_service.dart';
+import '../../services/workout_draft_service.dart';
 import '../../services/workout_recommendation_service.dart';
 import '../../l10n/app_localizations.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/exercise_card.dart';
+import '../../widgets/exercise_selection_dialog.dart';
+import '../../widgets/recommended_exercise_tile.dart';
 import '../../widgets/date_timeline_selector.dart';
 import '../../widgets/health_data_card.dart';
 import '../exercise/exercise_detail_screen.dart';
@@ -28,34 +32,285 @@ class _HomeScreenState extends State<HomeScreen> {
   final FirestoreService _firestoreService = FirestoreService();
   final WorkoutRecommendationService _recommendationService =
       WorkoutRecommendationService();
+  final WorkoutDraftService _draftService = WorkoutDraftService();
   DateTime _selectedDate = DateTime.now();
-  bool _hasPreloaded = false;
 
-  /// Pre-cache today's recommended exercise videos in the background.
-  /// Each video is initialized (triggering the cache download) then disposed.
-  Future<void> _preloadRecommendedVideos(String userId) async {
-    if (_hasPreloaded) return;
-    _hasPreloaded = true;
+  // Recommended-exercise plan is memoized per user so repeated rebuilds
+  // (e.g. from toggling a tick) don't re-run the query.
+  Future<Map<String, dynamic>>? _planFuture;
+  String? _planUserId;
+
+  // Firestore streams are memoized so setState rebuilds don't reconstruct
+  // them — otherwise StreamBuilder resubscribes, briefly shows its waiting
+  // state, and the UI flashes when the user ticks an exercise.
+  Stream<UserModel?>? _userStream;
+  String? _userStreamUid;
+  Stream<WorkoutModel?>? _workoutStream;
+  String? _workoutStreamUid;
+  DateTime? _workoutStreamDate;
+
+  // Ticked recommended exercises for the current date, with the sets / reps /
+  // weight entered in the inline form. Loaded from SharedPreferences.
+  Map<String, ExerciseDraftEntry> _draftEntries = {};
+  DateTime? _draftStartedAt;
+
+  // At most one recommended tile is expanded at a time; its exerciseId lives
+  // here so the parent can collapse whichever tile was previously open.
+  String? _expandedExerciseId;
+
+  // Exercises the user added on top of the recommended plan during this
+  // session. Held in memory only: if an entry in the draft has an id that
+  // isn't in the recommended plan, it's reconciled back into this list on
+  // load so customs ticked before an app kill keep showing up. Customs that
+  // were added but never marked done are lost on kill (intentional).
+  final List<ExerciseModel> _customExercises = [];
+
+  bool _isSavingWorkout = false;
+  bool _isPickingExercise = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDraft();
+  }
+
+  Future<void> _loadDraft() async {
+    final date = _selectedDate;
+    final entries = await _draftService.getEntries(date);
+    final startedAt = await _draftService.getStartedAt(date);
+    if (!mounted || !_isSameDay(_selectedDate, date)) return;
+    setState(() {
+      _draftEntries = entries;
+      _draftStartedAt = startedAt;
+      _customExercises.clear();
+    });
+    // Fetch exercise models for any draft entries that aren't part of the
+    // recommended plan — these were custom-added in a prior session.
+    unawaited(_reconcileCustomExercises());
+  }
+
+  /// Any draft entry whose id isn't in the current recommended plan is a
+  /// custom exercise from a previous session — fetch its model so it renders
+  /// as an inline tile like the recommended ones.
+  Future<void> _reconcileCustomExercises() async {
+    final userId = _planUserId;
+    final planFuture = _planFuture;
+    if (userId == null || planFuture == null) return;
+
+    late final Map<String, dynamic> plan;
+    try {
+      plan = await planFuture;
+    } catch (_) {
+      return;
+    }
+    if (!mounted) return;
+
+    final recommendedIds = (plan['exercises'] as List<ExerciseModel>? ?? const [])
+        .map((e) => e.exerciseId)
+        .toSet();
+    final knownCustomIds =
+        _customExercises.map((e) => e.exerciseId).toSet();
+    final missingIds = _draftEntries.keys
+        .where((id) =>
+            !recommendedIds.contains(id) && !knownCustomIds.contains(id))
+        .toList();
+
+    for (final id in missingIds) {
+      final model = await _firestoreService.getExercise(id);
+      if (!mounted) return;
+      if (model == null) continue;
+      setState(() {
+        if (!_customExercises.any((e) => e.exerciseId == model.exerciseId)) {
+          _customExercises.add(model);
+        }
+      });
+    }
+  }
+
+  Future<void> _addCustomExercise() async {
+    if (_isPickingExercise) return;
+    setState(() => _isPickingExercise = true);
+    try {
+      final exercises = await _firestoreService.getAllExercises();
+      if (!mounted) return;
+
+      final plan = _planFuture == null ? null : await _planFuture;
+      if (!mounted) return;
+
+      final recommendedIds =
+          (plan?['exercises'] as List<ExerciseModel>? ?? const [])
+              .map((e) => e.exerciseId)
+              .toSet();
+      final customIds = _customExercises.map((e) => e.exerciseId).toSet();
+      // Don't offer exercises that are already on-screen.
+      final candidates = exercises
+          .where((e) =>
+              !recommendedIds.contains(e.exerciseId) &&
+              !customIds.contains(e.exerciseId))
+          .toList();
+
+      final selected = await showDialog<ExerciseModel>(
+        context: context,
+        builder: (context) => ExerciseSelectionDialog(exercises: candidates),
+      );
+      if (!mounted || selected == null) return;
+
+      setState(() {
+        _customExercises.add(selected);
+        _expandedExerciseId = selected.exerciseId;
+      });
+    } finally {
+      if (mounted) setState(() => _isPickingExercise = false);
+    }
+  }
+
+  bool _isSameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
+  Future<Map<String, dynamic>> _ensurePlanFuture(String userId) {
+    if (_planFuture == null || _planUserId != userId) {
+      _planUserId = userId;
+      _planFuture = _recommendationService.getNextExercisePlan(userId);
+      // After the plan resolves, reconcile any draft entries that aren't
+      // part of it — those are customs from a previous session that need
+      // tiles. Safe to chain here; completes silently on error.
+      _planFuture!.then((_) {
+        if (mounted) _reconcileCustomExercises();
+      }).catchError((_) {});
+    }
+    return _planFuture!;
+  }
+
+  /// Caches the user stream so rebuilds don't resubscribe. StreamBuilder
+  /// would otherwise flash its waiting state and the screen would flicker.
+  Stream<UserModel?> _ensureUserStream(String userId) {
+    if (_userStream == null || _userStreamUid != userId) {
+      _userStreamUid = userId;
+      _userStream = _firestoreService.getUserStream(userId);
+    }
+    return _userStream!;
+  }
+
+  Stream<WorkoutModel?> _ensureWorkoutStream(String userId, DateTime date) {
+    if (_workoutStream == null ||
+        _workoutStreamUid != userId ||
+        _workoutStreamDate == null ||
+        !_isSameDay(_workoutStreamDate!, date)) {
+      _workoutStreamUid = userId;
+      _workoutStreamDate = date;
+      _workoutStream =
+          _firestoreService.getUserWorkoutForDateStream(userId, date);
+    }
+    return _workoutStream!;
+  }
+
+  void _handleRequestExpand(String exerciseId) {
+    setState(() => _expandedExerciseId = exerciseId);
+  }
+
+  void _handleRequestCollapse() {
+    setState(() => _expandedExerciseId = null);
+  }
+
+  Future<void> _handleMarkDone(ExerciseDraftEntry entry) async {
+    final wasFirst = _draftEntries.isEmpty;
+    final next = Map<String, ExerciseDraftEntry>.from(_draftEntries);
+    next[entry.exerciseId] = entry;
+    setState(() {
+      _draftEntries = next;
+      _expandedExerciseId = null;
+    });
+    await _draftService.setEntries(_selectedDate, next);
+    if (wasFirst && _draftStartedAt == null) {
+      final now = DateTime.now();
+      if (mounted) setState(() => _draftStartedAt = now);
+      await _draftService.setStartedAt(_selectedDate, now);
+    }
+  }
+
+  Future<void> _handleRemoveEntry(String exerciseId) async {
+    final next = Map<String, ExerciseDraftEntry>.from(_draftEntries);
+    next.remove(exerciseId);
+    setState(() {
+      _draftEntries = next;
+      _expandedExerciseId = null;
+      // If it was a custom-added exercise, remove the tile too — otherwise
+      // the card would hang around empty.
+      _customExercises
+          .removeWhere((e) => e.exerciseId == exerciseId);
+    });
+    await _draftService.setEntries(_selectedDate, next);
+  }
+
+  Future<void> _saveWorkoutFromDraft() async {
+    final userId =
+        Provider.of<AuthService>(context, listen: false).currentUser?.uid;
+    if (userId == null || userId.isEmpty) return;
+    if (_draftEntries.isEmpty || _isSavingWorkout) return;
+
+    setState(() => _isSavingWorkout = true);
+
+    final startedAt = _draftStartedAt ?? DateTime.now();
+    final durationMinutes =
+        DateTime.now().difference(startedAt).inMinutes.clamp(0, 24 * 60);
+
+    final workout = WorkoutModel(
+      workoutId: '',
+      userId: userId,
+      date: _selectedDate,
+      durationMinutes: durationMinutes,
+      exercisesCompleted: _draftEntries.values
+          .map((e) => ExerciseCompleted(
+                exerciseId: e.exerciseId,
+                sets: e.sets,
+                reps: e.reps,
+                weight: e.weight,
+              ))
+          .toList(),
+    );
 
     try {
-      final plan = await _recommendationService.getNextExercisePlan(userId);
-      final exercises = plan['exercises'] as List<ExerciseModel>;
-
-      for (final exercise in exercises) {
-        if (exercise.videoUrl.isEmpty) continue;
-        try {
-          final player = CachedVideoPlayerPlus.networkUrl(
-            Uri.parse(exercise.videoUrl),
-          );
-          await player.initialize();
-          player.dispose();
-        } catch (_) {
-          // Skip videos that fail to preload
-        }
-      }
-    } catch (_) {
-      // Non-critical — don't block anything
+      await _firestoreService.deleteUserWorkoutsForDate(
+          userId, _selectedDate);
+      await _firestoreService.addWorkout(workout);
+      await _draftService.clear(_selectedDate);
+      if (!mounted) return;
+      setState(() {
+        _draftEntries = {};
+        _draftStartedAt = null;
+        _expandedExerciseId = null;
+        _isSavingWorkout = false;
+        _customExercises.clear();
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context).workoutSaved),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isSavingWorkout = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error saving workout: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
+  }
+
+  Future<void> _pushRecording(List<ExerciseModel>? preloaded) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => WorkoutRecordingScreen(
+          selectedDate: _selectedDate,
+          preloadedExercises: preloaded,
+        ),
+      ),
+    );
+    // On return, draft may have been cleared by a successful save.
+    _loadDraft();
   }
 
   @override
@@ -66,7 +321,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       body: SafeArea(
         child: StreamBuilder<UserModel?>(
-          stream: _firestoreService.getUserStream(userId),
+          stream: _ensureUserStream(userId),
           builder: (context, userSnapshot) {
             if (userSnapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
@@ -78,8 +333,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Text(AppLocalizations.of(context).userNotFound));
             }
 
-            // Pre-cache today's recommended exercise videos in the background
-            _preloadRecommendedVideos(userId);
+            // Ensure plan future is created before any builder below uses it.
+            _ensurePlanFuture(userId);
 
             return RefreshIndicator(
               onRefresh: () async {
@@ -102,6 +357,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         setState(() {
                           _selectedDate = date;
                         });
+                        _loadDraft();
                       },
                       daysToShow: 30,
                     ),
@@ -173,11 +429,13 @@ class _HomeScreenState extends State<HomeScreen> {
     ];
   }
 
-  /// Shows today's completed workout only if one was already recorded.
+  /// Shows today's completed workout only if one was already recorded — and
+  /// only if the user isn't actively ticking a new draft, since finishing the
+  /// draft will replace whatever is currently logged for today.
   Widget _buildTodayWorkoutIfExists(String userId) {
+    if (_draftEntries.isNotEmpty) return const SizedBox.shrink();
     return StreamBuilder<WorkoutModel?>(
-      stream:
-          _firestoreService.getUserWorkoutForDateStream(userId, _selectedDate),
+      stream: _ensureWorkoutStream(userId, _selectedDate),
       builder: (context, snapshot) {
         final workout = snapshot.data;
         if (workout == null) return const SizedBox.shrink();
@@ -193,8 +451,7 @@ class _HomeScreenState extends State<HomeScreen> {
   /// Shows the workout recorded on a past date, or a "no workout" message.
   Widget _buildPastDateWorkout(String userId) {
     return StreamBuilder<WorkoutModel?>(
-      stream:
-          _firestoreService.getUserWorkoutForDateStream(userId, _selectedDate),
+      stream: _ensureWorkoutStream(userId, _selectedDate),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -389,8 +646,26 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildRecommendedFocus(String userId) {
+    // Today: hide the whole card if a workout is already logged and the
+    // user has nothing in progress (one training per day rule).
+    if (_isToday) {
+      return StreamBuilder<WorkoutModel?>(
+        stream: _ensureWorkoutStream(userId, _selectedDate),
+        builder: (context, snapshot) {
+          final hasWorkout = snapshot.data != null;
+          final hasDraft =
+              _draftEntries.isNotEmpty || _customExercises.isNotEmpty;
+          if (hasWorkout && !hasDraft) return const SizedBox.shrink();
+          return _buildRecommendedFocusCard(userId);
+        },
+      );
+    }
+    return _buildRecommendedFocusCard(userId);
+  }
+
+  Widget _buildRecommendedFocusCard(String userId) {
     return FutureBuilder<Map<String, dynamic>>(
-      future: _recommendationService.getNextExercisePlan(userId),
+      future: _ensurePlanFuture(userId),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Card(
@@ -409,7 +684,7 @@ class _HomeScreenState extends State<HomeScreen> {
         final targetMuscleGroup = plan['targetMuscleGroup'] as String;
         final exercises = plan['exercises'] as List<ExerciseModel>;
 
-        if (exercises.isEmpty) {
+        if (exercises.isEmpty && _customExercises.isEmpty) {
           return const SizedBox.shrink();
         }
 
@@ -471,21 +746,82 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                // Show the recommended exercises
-                ...exercises.map((exercise) => Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: ExerciseCard(
+                if (_isToday)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      AppLocalizations.of(context).markExercisesHint,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                // Today: inline expandable tiles that capture sets/reps/weight
+                // with a playable video. Past dates: plain link cards.
+                ...exercises.map((exercise) => _isToday
+                    ? RecommendedExerciseTile(
+                        key: ValueKey('rec-${exercise.exerciseId}'),
                         exercise: exercise,
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  ExerciseDetailScreen(exercise: exercise),
-                            ),
-                          );
-                        },
-                      ),
-                    )),
+                        entry: _draftEntries[exercise.exerciseId],
+                        expanded:
+                            _expandedExerciseId == exercise.exerciseId,
+                        onRequestExpand: () =>
+                            _handleRequestExpand(exercise.exerciseId),
+                        onRequestCollapse: _handleRequestCollapse,
+                        onMarkDone: _handleMarkDone,
+                        onRemove: () =>
+                            _handleRemoveEntry(exercise.exerciseId),
+                      )
+                    : Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: ExerciseCard(
+                          exercise: exercise,
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    ExerciseDetailScreen(exercise: exercise),
+                              ),
+                            );
+                          },
+                        ),
+                      )),
+                // Custom exercises the user added on top of the recommended
+                // plan — same tile widget, keyed separately so Flutter
+                // doesn't confuse them with reordered recommended items.
+                if (_isToday)
+                  ..._customExercises.map((exercise) =>
+                      RecommendedExerciseTile(
+                        key: ValueKey('custom-${exercise.exerciseId}'),
+                        exercise: exercise,
+                        entry: _draftEntries[exercise.exerciseId],
+                        expanded:
+                            _expandedExerciseId == exercise.exerciseId,
+                        onRequestExpand: () =>
+                            _handleRequestExpand(exercise.exerciseId),
+                        onRequestCollapse: _handleRequestCollapse,
+                        onMarkDone: _handleMarkDone,
+                        onRemove: () =>
+                            _handleRemoveEntry(exercise.exerciseId),
+                      )),
+                if (_isToday) ...[
+                  const SizedBox(height: 4),
+                  OutlinedButton.icon(
+                    onPressed:
+                        _isPickingExercise ? null : _addCustomExercise,
+                    icon: _isPickingExercise
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.add),
+                    label: Text(AppLocalizations.of(context).addExercise),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.primaryYellow,
+                      side: const BorderSide(color: AppTheme.primaryYellow),
+                      minimumSize: const Size.fromHeight(48),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -495,17 +831,51 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildLogWorkoutButton(String userId) {
+    // Hide the button when a workout already exists for today and the user
+    // hasn't started a new draft — one training per day.
+    return StreamBuilder<WorkoutModel?>(
+      stream: _ensureWorkoutStream(userId, _selectedDate),
+      builder: (context, workoutSnap) {
+        final hasWorkout = workoutSnap.data != null;
+        final hasDraft =
+            _draftEntries.isNotEmpty || _customExercises.isNotEmpty;
+        if (hasWorkout && !hasDraft) return const SizedBox.shrink();
+        return _buildLogWorkoutButtonInner(userId);
+      },
+    );
+  }
+
+  Widget _buildLogWorkoutButtonInner(String userId) {
     return FutureBuilder<Map<String, dynamic>>(
-      future: _recommendationService.getNextExercisePlan(userId),
+      future: _ensurePlanFuture(userId),
       builder: (context, snapshot) {
         final plan = snapshot.data;
+        final hasDraft = _draftEntries.isNotEmpty;
+        final l10n = AppLocalizations.of(context);
 
         return ElevatedButton.icon(
-          onPressed: () {
-            _showLogWorkoutOptions(plan);
-          },
-          icon: const Icon(Icons.add),
-          label: Text(AppLocalizations.of(context).logWorkout),
+          onPressed: _isSavingWorkout
+              ? null
+              : () {
+                  if (hasDraft) {
+                    _saveWorkoutFromDraft();
+                  } else {
+                    _showLogWorkoutOptions(plan);
+                  }
+                },
+          icon: _isSavingWorkout
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: AppTheme.darkBackground),
+                )
+              : Icon(hasDraft ? Icons.check : Icons.add),
+          label: Text(
+            hasDraft
+                ? '${l10n.finishWorkout} (${_draftEntries.length})'
+                : l10n.logWorkout,
+          ),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppTheme.primaryYellow,
             foregroundColor: AppTheme.darkBackground,
@@ -568,14 +938,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         '${exercises.length} ${l10n.exercisesCount}',
                     onTap: () {
                       Navigator.of(context).pop();
-                      Navigator.of(this.context).push(
-                        MaterialPageRoute(
-                          builder: (context) => WorkoutRecordingScreen(
-                            selectedDate: _selectedDate,
-                            preloadedExercises: exercises,
-                          ),
-                        ),
-                      );
+                      _pushRecording(exercises);
                     },
                   ),
 
@@ -588,13 +951,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   subtitle: l10n.pickYourOwnExercises,
                   onTap: () {
                     Navigator.of(context).pop();
-                    Navigator.of(this.context).push(
-                      MaterialPageRoute(
-                        builder: (context) => WorkoutRecordingScreen(
-                          selectedDate: _selectedDate,
-                        ),
-                      ),
-                    );
+                    _pushRecording(null);
                   },
                 ),
               ],
