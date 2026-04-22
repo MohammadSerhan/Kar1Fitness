@@ -307,7 +307,9 @@ class HealthService {
     return await getTodayHealthData();
   }
 
-  // Private helper method to sum health data values
+  // Private helper method to sum health data values. Dedupes samples by
+  // (source, uuid) — HealthKit can return the same reading from multiple
+  // sources (iPhone + Apple Watch) and summing naively would double-count.
   Future<double> _getHealthDataSum(
     HealthDataType type,
     DateTime startDate,
@@ -324,8 +326,9 @@ class HealthService {
         return 0.0;
       }
 
+      final deduped = _health.removeDuplicates(healthData);
       double sum = 0.0;
-      for (var data in healthData) {
+      for (var data in deduped) {
         if (data.value is NumericHealthValue) {
           sum += (data.value as NumericHealthValue).numericValue.toDouble();
         }
@@ -337,4 +340,5 @@ class HealthService {
       return 0.0;
     }
   }
+
 }
