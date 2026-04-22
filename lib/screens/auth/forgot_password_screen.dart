@@ -27,7 +27,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
-    final l10n = AppLocalizations.of(context);
 
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
@@ -41,15 +40,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       }
     } catch (e) {
       if (mounted) {
-        String message;
-        if (e.toString() == 'no-account') {
-          message = l10n.noAccountFound;
-        } else {
-          message = e.toString();
-        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(message),
+            content: Text(e.toString()),
             backgroundColor: Colors.red,
           ),
         );

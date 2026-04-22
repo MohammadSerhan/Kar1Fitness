@@ -79,19 +79,14 @@ class AuthService {
     await _auth.signOut();
   }
 
-  // Check if a user exists by email
-  Future<bool> userExists(String email) async {
-    final methods = await _auth.fetchSignInMethodsForEmail(email);
-    return methods.isNotEmpty;
-  }
-
-  // Reset password — verifies user exists first, then sends the email
+  // Reset password. We intentionally don't check whether the email is
+  // registered first — Firebase's email enumeration protection makes
+  // fetchSignInMethodsForEmail return empty for everyone, and leaking
+  // account existence to the client is an anti-pattern. Firebase silently
+  // no-ops for unknown emails, so the caller can always show a generic
+  // "check your inbox" confirmation.
   Future<void> resetPassword(String email) async {
     try {
-      final exists = await userExists(email);
-      if (!exists) {
-        throw 'no-account';
-      }
       await _auth.sendPasswordResetEmail(email: email);
     } on FirebaseAuthException catch (e) {
       throw _handleAuthException(e);
