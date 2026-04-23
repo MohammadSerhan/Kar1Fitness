@@ -174,9 +174,13 @@ class _HomeScreenState extends State<HomeScreen> {
               !customIds.contains(e.exerciseId))
           .toList();
 
+      final targetGroup = plan?['targetMuscleGroup'] as String?;
       final selected = await showDialog<ExerciseModel>(
         context: context,
-        builder: (context) => ExerciseSelectionDialog(exercises: candidates),
+        builder: (context) => ExerciseSelectionDialog(
+          exercises: candidates,
+          priorityMuscleGroup: targetGroup,
+        ),
       );
       if (!mounted || selected == null) return;
 
