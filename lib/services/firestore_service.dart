@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_model.dart';
 import '../models/exercise_model.dart';
 import '../models/workout_model.dart';
+import '../models/workout_template_model.dart';
 
 class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -240,5 +241,21 @@ class FirestoreService {
         .map((snapshot) => snapshot.docs.isNotEmpty
             ? WorkoutModel.fromFirestore(snapshot.docs.first)
             : null);
+  }
+
+  // Workout template methods
+  Future<List<WorkoutTemplateModel>> getAllTemplates() async {
+    try {
+      final snapshot = await _firestore
+          .collection('workout_templates')
+          .orderBy('name')
+          .get();
+      return snapshot.docs
+          .map((doc) => WorkoutTemplateModel.fromFirestore(doc))
+          .toList();
+    } catch (e) {
+      print('Error getting workout templates: $e');
+      return [];
+    }
   }
 }

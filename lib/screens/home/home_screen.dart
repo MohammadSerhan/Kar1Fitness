@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../models/user_model.dart';
 import '../../models/exercise_model.dart';
 import '../../models/workout_model.dart';
+import '../../models/workout_template_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../services/health_service.dart';
@@ -15,11 +16,11 @@ import '../../l10n/app_localizations.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/exercise_card.dart';
 import '../../widgets/exercise_selection_dialog.dart';
+import '../../widgets/log_custom_workout_sheet.dart';
 import '../../widgets/recommended_exercise_tile.dart';
 import '../../widgets/date_timeline_selector.dart';
 import '../../widgets/health_data_card.dart';
 import '../exercise/exercise_detail_screen.dart';
-import '../workout/workout_recording_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -57,6 +58,16 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, ExerciseDraftEntry> _cooldownDraft = {};
   DateTime? _draftStartedAt;
 
+  // True while the user is in a "Log Custom Workout" session. When true the
+  // recommended exercises are hidden; only the custom tiles show. Persisted
+  // per-date via [WorkoutDraftService] so closing the app mid-session doesn't
+  // bounce the user back into the recommended flow on reopen.
+  bool _isCustomSession = false;
+
+  // Name of the template the user picked for this custom session (e.g. "Chest
+  // Day") — null when the session was started with an individual exercise.
+  String? _customSessionName;
+
   // At most one recommended tile is expanded at a time; its exerciseId lives
   // here so the parent can collapse whichever tile was previously open.
   String? _expandedExerciseId;
@@ -72,6 +83,12 @@ class _HomeScreenState extends State<HomeScreen> {
   // are small lists and don't change between reloads of this screen.
   Future<List<ExerciseModel>>? _warmupLibraryFuture;
   Future<List<ExerciseModel>>? _cooldownLibraryFuture;
+
+  // Full exercise library + the workout_templates collection. Fetched lazily
+  // the first time the user taps the Log Custom Workout button or the
+  // Add Exercise action; reused for the lifetime of this screen.
+  Future<List<ExerciseModel>>? _allExercisesFuture;
+  Future<List<WorkoutTemplateModel>>? _templatesFuture;
 
   bool _isSavingWorkout = false;
   bool _isPickingExercise = false;
@@ -98,17 +115,66 @@ class _HomeScreenState extends State<HomeScreen> {
     final cooldown =
         await _draftService.getEntries(date, WorkoutPhase.cooldown);
     final startedAt = await _draftService.getStartedAt(date);
+    final customSession = await _draftService.getCustomSession(date);
+    final customSessionName =
+        await _draftService.getCustomSessionName(date);
+    final customIds = await _draftService.getCustomExerciseIds(date);
     if (!mounted || !_isSameDay(_selectedDate, date)) return;
     setState(() {
       _draftEntries = main;
       _warmupDraft = warmup;
       _cooldownDraft = cooldown;
       _draftStartedAt = startedAt;
+      _isCustomSession = customSession;
+      _customSessionName = customSessionName;
       _customExercises.clear();
     });
-    // Fetch exercise models for any draft entries that aren't part of the
-    // recommended plan — these were custom-added in a prior session.
+    // Rehydrate persisted custom tiles first — these survive app kill even
+    // before any exercise is marked done. Then reconcile any legacy draft
+    // entries that reference exercises no longer in the plan.
+    await _rehydrateCustomExercises(customIds);
     unawaited(_reconcileCustomExercises());
+
+    // Guard against a stale custom-session flag: if the flag is set but
+    // nothing actually shows up for the user (no persisted custom ids, no
+    // draft entries), drop back to the recommended flow so they're not
+    // stuck with an empty card.
+    if (mounted &&
+        _isCustomSession &&
+        _customExercises.isEmpty &&
+        _draftEntries.isEmpty) {
+      setState(() {
+        _isCustomSession = false;
+        _customSessionName = null;
+      });
+      await _draftService.setCustomSession(_selectedDate, false);
+      await _draftService.setCustomSessionName(_selectedDate, null);
+    }
+  }
+
+  Future<void> _rehydrateCustomExercises(List<String> ids) async {
+    if (ids.isEmpty) return;
+    final all = await _ensureAllExercisesFuture();
+    if (!mounted) return;
+    final byId = {for (final e in all) e.exerciseId: e};
+    final rehydrated = <ExerciseModel>[];
+    for (final id in ids) {
+      final model = byId[id];
+      if (model != null) rehydrated.add(model);
+    }
+    if (rehydrated.isEmpty) return;
+    setState(() {
+      for (final m in rehydrated) {
+        if (!_customExercises.any((e) => e.exerciseId == m.exerciseId)) {
+          _customExercises.add(m);
+        }
+      }
+    });
+  }
+
+  Future<void> _persistCustomIds() async {
+    final ids = _customExercises.map((e) => e.exerciseId).toList();
+    await _draftService.setCustomExerciseIds(_selectedDate, ids);
   }
 
   /// Any draft entry whose id isn't in the current recommended plan is a
@@ -137,6 +203,7 @@ class _HomeScreenState extends State<HomeScreen> {
             !recommendedIds.contains(id) && !knownCustomIds.contains(id))
         .toList();
 
+    var mutated = false;
     for (final id in missingIds) {
       final model = await _firestoreService.getExercise(id);
       if (!mounted) return;
@@ -144,16 +211,28 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         if (!_customExercises.any((e) => e.exerciseId == model.exerciseId)) {
           _customExercises.add(model);
+          mutated = true;
         }
       });
     }
+    if (mutated) await _persistCustomIds();
+  }
+
+  Future<List<ExerciseModel>> _ensureAllExercisesFuture() {
+    _allExercisesFuture ??= _firestoreService.getAllExercises();
+    return _allExercisesFuture!;
+  }
+
+  Future<List<WorkoutTemplateModel>> _ensureTemplatesFuture() {
+    _templatesFuture ??= _firestoreService.getAllTemplates();
+    return _templatesFuture!;
   }
 
   Future<void> _addCustomExercise() async {
     if (_isPickingExercise) return;
     setState(() => _isPickingExercise = true);
     try {
-      final exercises = await _firestoreService.getAllExercises();
+      final exercises = await _ensureAllExercisesFuture();
       if (!mounted) return;
 
       final plan = _planFuture == null ? null : await _planFuture;
@@ -188,6 +267,83 @@ class _HomeScreenState extends State<HomeScreen> {
         _customExercises.add(selected);
         _expandedExerciseId = selected.exerciseId;
       });
+      await _persistCustomIds();
+    } finally {
+      if (mounted) setState(() => _isPickingExercise = false);
+    }
+  }
+
+  /// Handler for the home-screen "Log Custom Workout" button. Fetches the
+  /// templates + the full exercise library (both memoized), shows the
+  /// [LogCustomWorkoutSheet], and appends whatever the user picked to the
+  /// current session as custom tiles.
+  Future<void> _openLogCustomWorkoutSheet() async {
+    if (_isPickingExercise) return;
+    setState(() => _isPickingExercise = true);
+    try {
+      final results = await Future.wait([
+        _ensureTemplatesFuture(),
+        _ensureAllExercisesFuture(),
+      ]);
+      if (!mounted) return;
+      final templates = results[0] as List<WorkoutTemplateModel>;
+      final allExercises = results[1] as List<ExerciseModel>;
+
+      final plan = _planFuture == null ? null : await _planFuture;
+      if (!mounted) return;
+      final targetGroup = plan?['targetMuscleGroup'] as String?;
+
+      final picked = await showModalBottomSheet<LogCustomWorkoutSelection>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: AppTheme.cardBackground,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (ctx) => LogCustomWorkoutSheet(
+          templates: templates,
+          allExercises: allExercises,
+          priorityMuscleGroup: targetGroup,
+        ),
+      );
+      if (!mounted || picked == null || picked.exercises.isEmpty) return;
+
+      // Don't double-add anything already on-screen — the recommended plan
+      // already covers some exercises, and the user may have custom tiles
+      // from a prior pick.
+      final recommendedIds =
+          (plan?['exercises'] as List<ExerciseModel>? ?? const [])
+              .map((e) => e.exerciseId)
+              .toSet();
+      final existingCustomIds =
+          _customExercises.map((e) => e.exerciseId).toSet();
+      final toAdd = picked.exercises
+          .where((e) =>
+              !recommendedIds.contains(e.exerciseId) &&
+              !existingCustomIds.contains(e.exerciseId))
+          .toList();
+      if (toAdd.isEmpty) return;
+
+      // Only set the session name on the first pick. Later picks (adding
+      // another template or individual exercise on top) shouldn't rename
+      // an already-named session.
+      final shouldSetName =
+          !_isCustomSession && _customSessionName == null;
+
+      setState(() {
+        _customExercises.addAll(toAdd);
+        _expandedExerciseId = toAdd.first.exerciseId;
+        _isCustomSession = true;
+        if (shouldSetName) {
+          _customSessionName = picked.templateName;
+        }
+      });
+      await _draftService.setCustomSession(_selectedDate, true);
+      if (shouldSetName) {
+        await _draftService.setCustomSessionName(
+            _selectedDate, picked.templateName);
+      }
+      await _persistCustomIds();
     } finally {
       if (mounted) setState(() => _isPickingExercise = false);
     }
@@ -304,18 +460,34 @@ class _HomeScreenState extends State<HomeScreen> {
     final next =
         Map<String, ExerciseDraftEntry>.from(_draftForPhase(phase));
     next.remove(exerciseId);
+    // If it was a custom-added main exercise, remove the tile too —
+    // otherwise the card would hang around empty. Warm-up / cool-down
+    // don't support customs, so skip.
+    final wasCustomMain = phase == WorkoutPhase.main &&
+        _customExercises.any((e) => e.exerciseId == exerciseId);
     setState(() {
       _assignDraftForPhase(phase, next);
       _expandedExerciseId = null;
-      // If it was a custom-added main exercise, remove the tile too —
-      // otherwise the card would hang around empty. Warm-up / cool-down
-      // don't support customs, so skip.
-      if (phase == WorkoutPhase.main) {
+      if (wasCustomMain) {
         _customExercises
             .removeWhere((e) => e.exerciseId == exerciseId);
       }
     });
     await _draftService.setEntries(_selectedDate, phase, next);
+    if (wasCustomMain) await _persistCustomIds();
+
+    // If the user has emptied the custom session down to nothing, fall back
+    // out of custom mode so the recommended focus reappears.
+    if (_isCustomSession &&
+        _draftEntries.isEmpty &&
+        _customExercises.isEmpty) {
+      setState(() {
+        _isCustomSession = false;
+        _customSessionName = null;
+      });
+      await _draftService.setCustomSession(_selectedDate, false);
+      await _draftService.setCustomSessionName(_selectedDate, null);
+    }
   }
 
   Future<void> _saveWorkoutFromDraft() async {
@@ -371,6 +543,8 @@ class _HomeScreenState extends State<HomeScreen> {
         _expandedExerciseId = null;
         _isSavingWorkout = false;
         _customExercises.clear();
+        _isCustomSession = false;
+        _customSessionName = null;
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -413,19 +587,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
-  }
-
-  Future<void> _pushRecording(List<ExerciseModel>? preloaded) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => WorkoutRecordingScreen(
-          selectedDate: _selectedDate,
-          preloadedExercises: preloaded,
-        ),
-      ),
-    );
-    // On return, draft may have been cleared by a successful save.
-    _loadDraft();
   }
 
   @override
@@ -994,7 +1155,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
         final plan = snapshot.data!;
         final targetMuscleGroup = plan['targetMuscleGroup'] as String;
-        final exercises = plan['exercises'] as List<ExerciseModel>;
+        // Hide the recommended exercises when the user chose to start a
+        // custom workout — we still render the same card shell so the
+        // custom tiles + Add Exercise button have a home.
+        final hideRecommended = _isToday && _isCustomSession;
+        final exercises = hideRecommended
+            ? const <ExerciseModel>[]
+            : plan['exercises'] as List<ExerciseModel>;
 
         if (exercises.isEmpty && _customExercises.isEmpty) {
           return const SizedBox.shrink();
@@ -1016,12 +1183,18 @@ class _HomeScreenState extends State<HomeScreen> {
                   padding: const EdgeInsets.all(16.0),
                   child: Row(
                     children: [
-                      const Icon(Icons.lightbulb_outline,
-                          color: AppTheme.primaryYellow),
+                      Icon(
+                        hideRecommended
+                            ? Icons.edit_note
+                            : Icons.lightbulb_outline,
+                        color: AppTheme.primaryYellow,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          l10n.recommendedFocus,
+                          hideRecommended
+                              ? (_customSessionName ?? l10n.customWorkout)
+                              : l10n.recommendedFocus,
                           style: Theme.of(context).textTheme.titleLarge,
                         ),
                       ),
@@ -1055,49 +1228,54 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color:
-                              AppTheme.primaryYellow.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
-                          border:
-                              Border.all(color: AppTheme.primaryYellow),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.fitness_center,
-                                color: AppTheme.primaryYellow),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    l10n.translateMuscleGroup(
-                                        targetMuscleGroup),
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium
-                                        ?.copyWith(
-                                          color: AppTheme.primaryYellow,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                  ),
-                                  Text(
-                                    l10n.basedOnRecentWorkouts,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall,
-                                  ),
-                                ],
+                      // The recommended muscle-group callout only makes
+                      // sense when we're actually showing recommended
+                      // exercises — hide during a custom session.
+                      if (!hideRecommended) ...[
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryYellow
+                                .withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border:
+                                Border.all(color: AppTheme.primaryYellow),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.fitness_center,
+                                  color: AppTheme.primaryYellow),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      l10n.translateMuscleGroup(
+                                          targetMuscleGroup),
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium
+                                          ?.copyWith(
+                                            color: AppTheme.primaryYellow,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                    ),
+                                    Text(
+                                      l10n.basedOnRecentWorkouts,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall,
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 12),
+                        const SizedBox(height: 12),
+                      ],
                       if (_isToday)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 8),
@@ -1213,169 +1391,40 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildLogWorkoutButtonInner(String userId) {
-    return FutureBuilder<Map<String, dynamic>>(
-      future: _ensurePlanFuture(userId),
-      builder: (context, snapshot) {
-        final plan = snapshot.data;
-        final hasDraft = _draftEntries.isNotEmpty;
-        final l10n = AppLocalizations.of(context);
-
-        return ElevatedButton.icon(
-          onPressed: _isSavingWorkout
-              ? null
-              : () {
-                  if (hasDraft) {
-                    _saveWorkoutFromDraft();
-                  } else {
-                    _showLogWorkoutOptions(plan);
-                  }
-                },
-          icon: _isSavingWorkout
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: AppTheme.darkBackground),
-                )
-              : Icon(hasDraft ? Icons.check : Icons.add),
-          label: Text(
-            hasDraft
-                ? '${l10n.finishWorkout} (${_draftEntries.length})'
-                : l10n.logWorkout,
-          ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.primaryYellow,
-            foregroundColor: AppTheme.darkBackground,
-            minimumSize: const Size(double.infinity, 56),
-            textStyle: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  void _showLogWorkoutOptions(Map<String, dynamic>? plan) {
-    final exercises =
-        plan != null ? plan['exercises'] as List<ExerciseModel> : <ExerciseModel>[];
-    final targetGroup =
-        plan != null ? plan['targetMuscleGroup'] as String : 'Full Body';
+    final hasDraft = _draftEntries.isNotEmpty;
     final l10n = AppLocalizations.of(context);
-    final translatedGroup = l10n.translateMuscleGroup(targetGroup);
+    final busy = _isSavingWorkout || _isPickingExercise;
 
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppTheme.cardBackground,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    return ElevatedButton.icon(
+      onPressed: busy
+          ? null
+          : () {
+              if (hasDraft) {
+                _saveWorkoutFromDraft();
+              } else {
+                _openLogCustomWorkoutSheet();
+              }
+            },
+      icon: busy
+          ? const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: AppTheme.darkBackground),
+            )
+          : Icon(hasDraft ? Icons.check : Icons.add),
+      label: Text(
+        hasDraft
+            ? '${l10n.finishWorkout} (${_draftEntries.length})'
+            : l10n.logCustomWorkout,
       ),
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: AppTheme.mediumGrey,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  l10n.startWorkout,
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                const SizedBox(height: 20),
-
-                // Option 1: Recommended workout
-                if (exercises.isNotEmpty)
-                  _buildWorkoutOption(
-                    icon: Icons.lightbulb,
-                    title: '${l10n.recommendedPrefix}: $translatedGroup',
-                    subtitle:
-                        '${exercises.length} ${l10n.exercisesCount}',
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      _pushRecording(exercises);
-                    },
-                  ),
-
-                if (exercises.isNotEmpty) const SizedBox(height: 12),
-
-                // Option 2: Manual / custom workout
-                _buildWorkoutOption(
-                  icon: Icons.edit_note,
-                  title: l10n.customWorkout,
-                  subtitle: l10n.pickYourOwnExercises,
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    _pushRecording(null);
-                  },
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildWorkoutOption({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppTheme.darkGrey,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.mediumGrey),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryYellow.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, color: AppTheme.primaryYellow),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
-              ),
-            ),
-            const Icon(Icons.chevron_right, color: AppTheme.lightGrey),
-          ],
+      style: ElevatedButton.styleFrom(
+        backgroundColor: AppTheme.primaryYellow,
+        foregroundColor: AppTheme.darkBackground,
+        minimumSize: const Size(double.infinity, 56),
+        textStyle: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
         ),
       ),
     );

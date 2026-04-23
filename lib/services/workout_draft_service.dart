@@ -65,6 +65,12 @@ class WorkoutDraftService {
       'workout_draft_${_phaseSlug(phase)}${_dateSlug(date)}';
   static String _startedAtKey(DateTime date) =>
       'workout_draft_started_${_dateSlug(date)}';
+  static String _customSessionKey(DateTime date) =>
+      'workout_draft_custom_${_dateSlug(date)}';
+  static String _customSessionNameKey(DateTime date) =>
+      'workout_draft_custom_name_${_dateSlug(date)}';
+  static String _customExerciseIdsKey(DateTime date) =>
+      'workout_draft_custom_ids_${_dateSlug(date)}';
 
   static String _dateSlug(DateTime date) {
     final y = date.year.toString().padLeft(4, '0');
@@ -137,6 +143,61 @@ class WorkoutDraftService {
         _startedAtKey(date), value.millisecondsSinceEpoch);
   }
 
+  /// Whether the user started a fully-custom workout on [date] via the
+  /// "Log Custom Workout" flow. When true, the home screen hides the
+  /// recommended exercises and shows only the custom tiles the user picked.
+  Future<bool> getCustomSession(DateTime date) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_customSessionKey(date)) ?? false;
+  }
+
+  Future<void> setCustomSession(DateTime date, bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = _customSessionKey(date);
+    if (value) {
+      await prefs.setBool(key, true);
+    } else {
+      await prefs.remove(key);
+    }
+  }
+
+  /// Optional display name for the current custom session — populated when the
+  /// user picked a template ("Chest Day"), left null when they picked an
+  /// individual exercise.
+  Future<String?> getCustomSessionName(DateTime date) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_customSessionNameKey(date));
+  }
+
+  Future<void> setCustomSessionName(DateTime date, String? value) async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = _customSessionNameKey(date);
+    if (value == null || value.isEmpty) {
+      await prefs.remove(key);
+    } else {
+      await prefs.setString(key, value);
+    }
+  }
+
+  /// Ordered list of exercise ids the user added during the current custom
+  /// session. Persisted separately from the draft entries so tiles survive
+  /// app kill even when none of them have been marked done yet.
+  Future<List<String>> getCustomExerciseIds(DateTime date) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getStringList(_customExerciseIdsKey(date)) ?? const [];
+  }
+
+  Future<void> setCustomExerciseIds(
+      DateTime date, List<String> ids) async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = _customExerciseIdsKey(date);
+    if (ids.isEmpty) {
+      await prefs.remove(key);
+    } else {
+      await prefs.setStringList(key, ids);
+    }
+  }
+
   /// Clears the draft for the given date, across all phases.
   Future<void> clear(DateTime date) async {
     final prefs = await SharedPreferences.getInstance();
@@ -144,5 +205,8 @@ class WorkoutDraftService {
       await prefs.remove(_entriesKey(date, phase));
     }
     await prefs.remove(_startedAtKey(date));
+    await prefs.remove(_customSessionKey(date));
+    await prefs.remove(_customSessionNameKey(date));
+    await prefs.remove(_customExerciseIdsKey(date));
   }
 }

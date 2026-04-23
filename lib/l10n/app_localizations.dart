@@ -112,6 +112,15 @@ class AppLocalizations {
   String get useMarkedExercises => t('useMarkedExercises');
   String get markDone => t('markDone');
   String get remove => t('remove');
+  String get logCustomWorkout => t('logCustomWorkout');
+  String get templates => t('templates');
+  String get noTemplatesYet => t('noTemplatesYet');
+  String get pickIndividualExercise => t('pickIndividualExercise');
+  String get exercisesShort => t('exercisesShort');
+  String get orLabel => t('orLabel');
+  String get difficultyBeginner => t('difficultyBeginner');
+  String get difficultyIntermediate => t('difficultyIntermediate');
+  String get difficultyAdvanced => t('difficultyAdvanced');
 
   // Health data
   String get healthData => t('healthData');
@@ -273,6 +282,16 @@ class AppLocalizations {
       'useMarkedExercises': 'Use Marked Exercises',
       'markDone': 'Mark Done',
       'remove': 'Remove',
+      'logCustomWorkout': 'Log Custom Workout',
+      'templates': 'Templates',
+      'noTemplatesYet':
+          'No workout templates yet — pick an individual exercise instead.',
+      'pickIndividualExercise': 'Pick an individual exercise',
+      'exercisesShort': 'exercises',
+      'orLabel': 'or',
+      'difficultyBeginner': 'Beginner',
+      'difficultyIntermediate': 'Intermediate',
+      'difficultyAdvanced': 'Advanced',
 
       'healthData': 'Health Data',
       'connectWearable':
@@ -409,6 +428,15 @@ class AppLocalizations {
       'useMarkedExercises': 'השתמש בתרגילים שסומנו',
       'markDone': 'סמן כהושלם',
       'remove': 'הסר',
+      'logCustomWorkout': 'רשום אימון מותאם',
+      'templates': 'תבניות',
+      'noTemplatesYet': 'אין עדיין תבניות אימון — בחר תרגיל בודד במקום.',
+      'pickIndividualExercise': 'בחר תרגיל בודד',
+      'exercisesShort': 'תרגילים',
+      'orLabel': 'או',
+      'difficultyBeginner': 'מתחיל',
+      'difficultyIntermediate': 'בינוני',
+      'difficultyAdvanced': 'מתקדם',
 
       'healthData': 'נתוני בריאות',
       'connectWearable':
@@ -544,6 +572,15 @@ class AppLocalizations {
           'اضغط على البطاقة لمشاهدة الفيديو وإدخال المجموعات والتكرارات ووضع علامة منتهي',
       'useMarkedExercises': 'استخدم التمارين المحددة',
       'markDone': 'وضع علامة منتهي',
+      'logCustomWorkout': 'سجّل تمريناً مخصصاً',
+      'templates': 'القوالب',
+      'noTemplatesYet': 'لا توجد قوالب تمارين بعد — اختر تمريناً فردياً بدلاً من ذلك.',
+      'pickIndividualExercise': 'اختر تمريناً فردياً',
+      'exercisesShort': 'تمارين',
+      'orLabel': 'أو',
+      'difficultyBeginner': 'مبتدئ',
+      'difficultyIntermediate': 'متوسط',
+      'difficultyAdvanced': 'متقدم',
       'remove': 'إزالة',
 
       'healthData': 'البيانات الصحية',
