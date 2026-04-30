@@ -56,32 +56,24 @@ class HealthService {
       final startOfDay = DateTime(now.year, now.month, now.day);
       final endOfDay = DateTime(now.year, now.month, now.day, 23, 59, 59);
 
-      // Get steps
-      final steps = await _getHealthDataSum(
-        HealthDataType.STEPS,
-        startOfDay,
-        endOfDay,
-      );
+      final steps = await _getStepsCount(startOfDay, endOfDay);
 
-      // Get calories
-      final calories = await _getHealthDataSum(
+      final calories = await _getPreferredSourceSum(
         HealthDataType.ACTIVE_ENERGY_BURNED,
         startOfDay,
         endOfDay,
       );
 
-      // Get distance (in meters, convert to km)
-      final distanceMeters = await _getHealthDataSum(
+      final distanceMeters = await _getPreferredSourceSum(
         _distanceType,
         startOfDay,
         endOfDay,
       );
 
-      // Calculate active minutes (approximate from steps - 100 steps per minute)
       final activeMinutes = steps > 0 ? (steps / 100).round() : 0;
 
       return {
-        'steps': steps.round(),
+        'steps': steps,
         'calories': calories.round(),
         'distance_km': (distanceMeters / 1000).toStringAsFixed(2),
         'active_minutes': activeMinutes,
@@ -107,19 +99,15 @@ class HealthService {
     try {
       await _health.configure();
 
-      final steps = await _getHealthDataSum(
-        HealthDataType.STEPS,
-        startOfDay,
-        endOfDay,
-      );
+      final steps = await _getStepsCount(startOfDay, endOfDay);
 
-      final calories = await _getHealthDataSum(
+      final calories = await _getPreferredSourceSum(
         HealthDataType.ACTIVE_ENERGY_BURNED,
         startOfDay,
         endOfDay,
       );
 
-      final distanceMeters = await _getHealthDataSum(
+      final distanceMeters = await _getPreferredSourceSum(
         _distanceType,
         startOfDay,
         endOfDay,
@@ -128,7 +116,7 @@ class HealthService {
       final activeMinutes = steps > 0 ? (steps / 100).round() : 0;
 
       return {
-        'steps': steps.round(),
+        'steps': steps,
         'calories': calories.round(),
         'distance_km': (distanceMeters / 1000).toStringAsFixed(2),
         'active_minutes': activeMinutes,
@@ -174,14 +162,10 @@ class HealthService {
         final startOfDay = DateTime(day.year, day.month, day.day);
         final endOfDay = DateTime(day.year, day.month, day.day, 23, 59, 59);
 
-        final steps = await _getHealthDataSum(
-          HealthDataType.STEPS,
-          startOfDay,
-          endOfDay,
-        );
+        final steps = await _getStepsCount(startOfDay, endOfDay);
 
         final dayKey = '${day.month}/${day.day}';
-        dailySteps[dayKey] = steps.round();
+        dailySteps[dayKey] = steps;
       }
 
       return dailySteps;
@@ -307,10 +291,25 @@ class HealthService {
     return await getTodayHealthData();
   }
 
-  // Private helper method to sum health data values. Dedupes samples by
-  // (source, uuid) — HealthKit can return the same reading from multiple
-  // sources (iPhone + Apple Watch) and summing naively would double-count.
-  Future<double> _getHealthDataSum(
+  // Steps via HKStatisticsQuery (iOS) / Health Connect aggregation (Android),
+  // matching the number Apple Health / Health Connect display. Avoids the
+  // multi-source double-count we get from summing raw samples (iPhone +
+  // Apple Watch overlap on the same minute).
+  Future<int> _getStepsCount(DateTime startDate, DateTime endDate) async {
+    try {
+      final count = await _health.getTotalStepsInInterval(startDate, endDate);
+      return count ?? 0;
+    } catch (e) {
+      print('Error getting steps count: $e');
+      return 0;
+    }
+  }
+
+  // For cumulative quantities the package exposes no statistics-query helper,
+  // so we de-overlap manually: pick the source with the most samples in the
+  // window (proxy for the primary recording device — Apple Watch beats iPhone
+  // beats one-off third-party entries) and sum only its samples.
+  Future<double> _getPreferredSourceSum(
     HealthDataType type,
     DateTime startDate,
     DateTime endDate,
@@ -327,16 +326,25 @@ class HealthService {
       }
 
       final deduped = _health.removeDuplicates(healthData);
-      double sum = 0.0;
-      for (var data in deduped) {
-        if (data.value is NumericHealthValue) {
-          sum += (data.value as NumericHealthValue).numericValue.toDouble();
-        }
+
+      final Map<String, List<HealthDataPoint>> bySource = {};
+      for (final p in deduped) {
+        bySource.putIfAbsent(p.sourceId, () => []).add(p);
       }
 
+      final preferred = bySource.entries
+          .reduce((a, b) => a.value.length >= b.value.length ? a : b)
+          .value;
+
+      double sum = 0.0;
+      for (final p in preferred) {
+        if (p.value is NumericHealthValue) {
+          sum += (p.value as NumericHealthValue).numericValue.toDouble();
+        }
+      }
       return sum;
     } catch (e) {
-      print('Error getting health data sum for $type: $e');
+      print('Error getting preferred-source sum for $type: $e');
       return 0.0;
     }
   }
